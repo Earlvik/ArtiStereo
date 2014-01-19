@@ -5,7 +5,7 @@ using System.Data;
 using System.Linq;
 using System.Windows;
 
-namespace ArtiStereo
+namespace Earlvik.ArtiStereo
 {
     /// <summary>
     /// Логика взаимодействия для App.xaml

@@ -8,7 +8,7 @@
     <ProjectGuid>{ACF0D6E0-F98E-4B89-B4E5-B4B501299D4B}</ProjectGuid>
     <OutputType>WinExe</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>ArtiStereo</RootNamespace>
+    <RootNamespace>Earlvik.ArtiStereo</RootNamespace>
     <AssemblyName>ArtiStereo</AssemblyName>
     <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
     <TargetFrameworkProfile>Client</TargetFrameworkProfile>

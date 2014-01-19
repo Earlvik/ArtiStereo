@@ -12,7 +12,9 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 
-namespace ArtiStereo
+
+namespace Earlvik.ArtiStereo
+
 {
     /// <summary>
     /// Логика взаимодействия для MainWindow.xaml
@@ -21,6 +23,7 @@ namespace ArtiStereo
     {
         public MainWindow()
         {
+            MessageBoxResult test = MessageBox.Show("Yep, that works");
             InitializeComponent();
         }
     }
