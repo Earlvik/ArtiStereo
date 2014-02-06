@@ -59,16 +59,26 @@ namespace ArtiStereoTests
         {
             AS.Point a = new AS.Point(1, 1);
             AS.Point b = new AS.Point(5,2.5);
-            Assert.IsTrue(Math.Abs(AS.Line.Distance(a,b) - Math.Sqrt(18.25)) < Eps);
+            Assert.IsTrue(Math.Abs(AS.Geometry.Distance(a,b) - Math.Sqrt(18.25)) < Eps);
         }
 
         [TestMethod]
-        public void AngleTest()
+        public void AngleTest1()
         {
             AS.Line a = new AS.Line(1,2,2,6);
             AS.Line b = new AS.Line(2,2,6,1);
-            double angle = AS.Line.Angle(a, b);
+            double angle = AS.Geometry.Angle(a, b);
             Assert.IsTrue(Math.Abs(angle - Math.PI/2) <Eps,"Angle between lines had to be Pi/2, but was "+ angle);
+        }
+
+        [TestMethod]
+        public void AngleTest2()
+        {
+            AS.Line a = new AS.Line(0,0,6,0);
+            AS.Line b = new AS.Line(1,1,3,2);
+            double trueResult = Math.Acos(2/Math.Sqrt(5));
+            double angle = AS.Geometry.Angle(a, b);
+            Assert.IsTrue(Math.Abs(angle-trueResult)<Eps,"Angle between lines had to be "+trueResult+", but was "+angle);
         }
 
         [TestMethod]
@@ -77,7 +87,7 @@ namespace ArtiStereoTests
            // AS.Line a = new AS.Line(1,3,4,6);
             AS.Line b = new AS.Line(2,1,6,5);
             AS.Point point = new AS.Point(3,5);
-            AS.Point p = AS.Line.ParallelProjection(b, point);
+            AS.Point p = AS.Geometry.ParallelProjection(b, point);
             Assert.IsTrue(p!=null && Math.Abs(p.X - 4.5) <Eps && Math.Abs(p.Y - 3.5) <Eps,"Resulted projection point had to be (4.5,3.5) but was "+p );
         }
 
@@ -87,7 +97,7 @@ namespace ArtiStereoTests
             AS.Line wall = new AS.Line(5,0,5,10);
             AS.Point source = new AS.Point(2,2);
             AS.Point listener = new AS.Point(2,6);
-            AS.Point result = AS.Line.ReflectionPoint(wall, source, listener);
+            AS.Point result = AS.Geometry.ReflectionPoint(wall, source, listener);
             Assert.IsTrue(result!=null && Math.Abs(result.X - 5) <Eps && Math.Abs(result.Y - 4)<Eps,"The reflection point had to be (5,4), but was "+result);
         }
     }
