@@ -100,5 +100,77 @@ namespace ArtiStereoTests
             AS.Point result = AS.Geometry.ReflectionPoint(wall, source, listener);
             Assert.IsTrue(result!=null && Math.Abs(result.X - 5) <Eps && Math.Abs(result.Y - 4)<Eps,"The reflection point had to be (5,4), but was "+result);
         }
+
+        //[TestMethod]
+        //public void SimpleSurfaceTest()
+        //{
+        //    AS.Room room = new AS.Room();
+        //    AS.Point a = new AS.Point(0,0);
+        //    AS.Point b = new AS.Point(2,5);
+        //    AS.Point c = new AS.Point(5,0);
+        //    AS.Point d = new AS.Point(2,2);
+        //    room.AddSource(a);
+        //    room.AddSource(b);
+        //    room.AddSource(c);
+        //    room.AddSource(d);
+        //    List<AS.Point> surf = room.OuterSurface();
+        //    bool checkResult = surf.IndexOf(a) != -1 && surf.IndexOf(b) != -1 && surf.IndexOf(c) != -1 &&
+        //                        surf.IndexOf(d) == -1;
+        //    string text = surf.Aggregate("", (current, point) => current + point.ToString());
+        //    Assert.IsTrue(checkResult,"Surface had to be (0,0),(2,5),(5,0) but was "+text);
+        //}
+
+        [TestMethod]
+        public void SimpleValidRoomTest()
+        {
+            AS.Room room = new AS.Room();
+            AS.Wall.Material m = AS.Wall.Material.Granite;
+            room.AddWall(new AS.Wall(2,0,5,0,m));
+            room.AddWall(new AS.Wall(5,0,7,2,m));
+            room.AddWall(new AS.Wall(7,2,7,5,m));
+            room.AddWall(new AS.Wall(7,5,2,7,m));
+            room.AddWall(new AS.Wall(2,7,0,3,m));
+            room.AddWall(new AS.Wall(0,3,2,0,m));
+            room.AddSource(new AS.Point(4,1));
+            room.AddListener(new AS.Point(2,4));
+            room.AddListener(new AS.Point(5,4));
+            Assert.IsTrue(room.IsValid(),"Room was invalid!");
+        }
+
+        [TestMethod]
+        public void SimpleInvalidRoomTest()
+        {
+            AS.Room room = new AS.Room();
+            AS.Wall.Material m = AS.Wall.Material.Granite;
+            room.AddWall(new AS.Wall(2, 0, 5, 0, m));
+            room.AddWall(new AS.Wall(5, 0, 7, 2, m));
+            room.AddWall(new AS.Wall(7, 2, 7, 5, m));
+            room.AddWall(new AS.Wall(7, 5, 2, 7, m));
+            room.AddWall(new AS.Wall(2, 7, 0, 3, m));
+            room.AddWall(new AS.Wall(0, 3, 2, 0, m));
+            room.AddSource(new AS.Point(4, 1));
+            room.AddListener(new AS.Point(2, 4));
+            room.AddListener(new AS.Point(5, 7));
+            Assert.IsTrue(!room.IsValid(), "Room was valid!");
+        }
+
+        [TestMethod]
+        public void SimpleInvalidRoomTest2()
+        {
+            AS.Room room = new AS.Room();
+            AS.Wall.Material m = AS.Wall.Material.Granite;
+            room.AddWall(new AS.Wall(2, 0, 5, 0, m));
+            //room.AddWall(new AS.Wall(5, 0, 7, 2, m));
+            room.AddWall(new AS.Wall(7, 2, 7, 5, m));
+            room.AddWall(new AS.Wall(7, 5, 2, 7, m));
+            room.AddWall(new AS.Wall(2, 7, 0, 3, m));
+            room.AddWall(new AS.Wall(0, 3, 2, 0, m));
+            room.AddSource(new AS.Point(4, 1));
+            room.AddListener(new AS.Point(2, 4));
+            room.AddListener(new AS.Point(5, 4));
+            Assert.IsTrue(!room.IsValid(), "Room was valid!");
+        }
+
+
     }
 }
