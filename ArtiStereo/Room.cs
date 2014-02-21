@@ -121,7 +121,7 @@ namespace Earlvik.ArtiStereo
             return true;
         }
         /// <summary>
-        /// Calculates outer surface points of the room
+        /// Calculates outer surface points of the room using Jarvis algorythm
         /// </summary>
         /// <returns>List of points in the outer surface polygon</returns>
          List<Point> OuterSurface()

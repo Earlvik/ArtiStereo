@@ -47,6 +47,7 @@
   <ItemGroup>
     <Compile Include="GeometryTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="SoundTests.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\ArtiStereo\ArtiStereo.csproj">

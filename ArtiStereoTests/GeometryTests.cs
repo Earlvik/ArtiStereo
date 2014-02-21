@@ -12,7 +12,7 @@ namespace ArtiStereoTests
     {
         private const double Eps = 0.0000001;
         [TestMethod]
-        public void TestMethod1()
+        public void InterSectionTest()
         {
             AS.Line a = new AS.Line(1,1,3,5);
             AS.Line b= new AS.Line(1,5,3,1);
