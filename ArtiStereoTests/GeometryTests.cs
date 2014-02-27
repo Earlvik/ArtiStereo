@@ -87,7 +87,7 @@ namespace ArtiStereoTests
            // AS.Line a = new AS.Line(1,3,4,6);
             AS.Line b = new AS.Line(2,1,6,5);
             AS.Point point = new AS.Point(3,5);
-            AS.Point p = AS.Geometry.ParallelProjection(b, point);
+            AS.Point p = AS.Geometry.ParallelProjection(b, point,true);
             Assert.IsTrue(p!=null && Math.Abs(p.X - 4.5) <Eps && Math.Abs(p.Y - 3.5) <Eps,"Resulted projection point had to be (4.5,3.5) but was "+p );
         }
 
@@ -131,9 +131,9 @@ namespace ArtiStereoTests
             room.AddWall(new AS.Wall(7,5,2,7,m));
             room.AddWall(new AS.Wall(2,7,0,3,m));
             room.AddWall(new AS.Wall(0,3,2,0,m));
-            room.AddSource(new AS.Point(4,1));
-            room.AddListener(new AS.Point(2,4));
-            room.AddListener(new AS.Point(5,4));
+            room.AddSource(new AS.SoundPoint(4,1));
+            room.AddListener(new AS.SoundPoint(2,4));
+            room.AddListener(new AS.SoundPoint(5,4));
             Assert.IsTrue(room.IsValid(),"Room was invalid!");
         }
 
@@ -148,9 +148,9 @@ namespace ArtiStereoTests
             room.AddWall(new AS.Wall(7, 5, 2, 7, m));
             room.AddWall(new AS.Wall(2, 7, 0, 3, m));
             room.AddWall(new AS.Wall(0, 3, 2, 0, m));
-            room.AddSource(new AS.Point(4, 1));
-            room.AddListener(new AS.Point(2, 4));
-            room.AddListener(new AS.Point(5, 7));
+            room.AddSource(new AS.SoundPoint(4, 1));
+            room.AddListener(new AS.SoundPoint(2, 4));
+            room.AddListener(new AS.SoundPoint(5, 7));
             Assert.IsTrue(!room.IsValid(), "Room was valid!");
         }
 
@@ -165,9 +165,9 @@ namespace ArtiStereoTests
             room.AddWall(new AS.Wall(7, 5, 2, 7, m));
             room.AddWall(new AS.Wall(2, 7, 0, 3, m));
             room.AddWall(new AS.Wall(0, 3, 2, 0, m));
-            room.AddSource(new AS.Point(4, 1));
-            room.AddListener(new AS.Point(2, 4));
-            room.AddListener(new AS.Point(5, 4));
+            room.AddSource(new AS.SoundPoint(4, 1));
+            room.AddListener(new AS.SoundPoint(2, 4));
+            room.AddListener(new AS.SoundPoint(5, 4));
             Assert.IsTrue(!room.IsValid(), "Room was valid!");
         }
 

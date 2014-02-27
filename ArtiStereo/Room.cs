@@ -12,18 +12,19 @@ namespace Earlvik.ArtiStereo
     [Serializable]
    public class Room
     {
+        private const double distanceNearSource = 0.2;
         //lists of room elements
         private List<Wall> _walls;
-        private List<Point> _sources;
-        private List<Point> _listeners;
+        private List<SoundPoint> _sources;
+        private List<SoundPoint> _listeners;
         //value for calculating reflection from ceiling
         public double CeilingHeight { set; get; }
 
         public Room()
         {
             _walls = new List<Wall>();
-            _sources = new List<Point>();
-            _listeners = new List<Point>();
+            _sources = new List<SoundPoint>();
+            _listeners = new List<SoundPoint>();
         }
         /// <summary>
         /// Adds new wall to the room
@@ -38,7 +39,7 @@ namespace Earlvik.ArtiStereo
         /// Adds new sound source to the room
         /// </summary>
         /// <param name="source"></param>
-        public void AddSource(Point source)
+        public void AddSource(SoundPoint source)
         {
             if(!SourceNotExists(source)) throw new Exception("Trying to add already existent source");
             if(!PointNotOnWall(source)) throw new Exception("Trying to add source on a wall");
@@ -48,7 +49,7 @@ namespace Earlvik.ArtiStereo
         /// Adds new listener to the room
         /// </summary>
         /// <param name="listener"></param>
-        public void AddListener(Point listener)
+        public void AddListener(SoundPoint listener)
         {
             if (!ListenerNotExists(listener)) throw new Exception("Trying to add already existent listener");
             if (!PointNotOnWall(listener)) throw new Exception("Trying to add listener on a wall");
@@ -66,7 +67,7 @@ namespace Earlvik.ArtiStereo
         /// deletes certain sound source
         /// </summary>
         /// <param name="source"></param>
-        public void RemoveSource(Point source)
+        public void RemoveSource(SoundPoint source)
         {
             _sources.Remove(source);
         }
@@ -74,14 +75,14 @@ namespace Earlvik.ArtiStereo
         /// deletes certain listener
         /// </summary>
         /// <param name="listener"></param>
-        public void RemoveListener(Point listener)
+        public void RemoveListener(SoundPoint listener)
         {
             _listeners.Remove(listener);
         }
         //Public accessors to the lists
         public List<Wall> Walls { get { return _walls; } }
-        public List<Point> Sources { get { return _sources; } }
-        public List<Point> Listeners { get { return _listeners; } }
+        public List<SoundPoint> Sources { get { return _sources; } }
+        public List<SoundPoint> Listeners { get { return _listeners; } }
         //Methods checking correctness of elements being added
         bool WallNotExists(Wall testwall)
         {
@@ -174,6 +175,72 @@ namespace Earlvik.ArtiStereo
             //surface.Add(lefttop);
             return surface;
         } 
+
+        bool CheckPath(Line line)
+        {
+            return Walls.All(wall => Geometry.SegmentIntersection(wall, line, false) == null);
+        }
+
+        bool CheckPath(Line line, Wall exclude)
+        {
+            return Walls.All(wall => Geometry.SegmentIntersection(wall, line, false) == null || wall == exclude); 
+        }
+        public void CalculateSound()
+        {
+            
+            double airSSpeed = Wall.Material.Air.SoundSpeed;
+            foreach (SoundPoint source in Sources)
+            {
+                //double distance = Listeners.Min(x => Geometry.Distance(source, x));
+
+                //double timeOffset = distance/airSSpeed*1000;
+                
+                foreach (SoundPoint listener in Listeners)
+                {
+                    listener.Sound = new Sound(1, source.Sound.DiscretionRate, source.Sound.BitsPerSample);
+                    if (CheckPath(new Line(source, listener)))
+                    {
+                        double distance = Geometry.Distance(listener, source);
+                        double time = distance/airSSpeed*1000;
+                        double percentReduction = SoundReduction(distance);
+                        listener.Sound.Add(source.Sound.CopyWithVolume(percentReduction, 0), 0, 0,
+                                           source.Sound.MillesecondsToSamples((int) time));
+                    }
+
+                    foreach (Wall wall in Walls)
+                    {
+                        Point refPoint = Geometry.ReflectionPoint(wall, source, listener);
+                        if (refPoint == null) continue;
+                        if (
+                            !(CheckPath(new Line(source, refPoint), wall) &&
+                              CheckPath(new Line(refPoint, listener), wall))) continue;
+                        Sound snd = new Sound(source.Sound);
+                        //snd.SetVolume(SoundReduction(Geometry.Distance(source, refPoint)),0);
+                        Double angle = Geometry.Angle(new Line(source, refPoint), new Line(refPoint, listener)) / 2;
+                        Double refCoefft = wall.ReflectionCoefft(angle);
+                        //snd.SetVolume(refCoefft,0);
+                        Double reductionCoefft = (SoundReduction(Geometry.Distance(source, refPoint) +
+                                                                 Geometry.Distance(refPoint, listener))) * refCoefft;
+                        snd.SetVolume(reductionCoefft, 0);
+                        Double time = (Geometry.Distance(source, refPoint) + Geometry.Distance(refPoint, listener)) /
+                                      airSSpeed * 1000;
+                        listener.Sound.Add(snd, 0, 0, (int)time);
+
+                    }
+                }
+                
+
+               
+
+            }
+        }
+
+        double SoundReduction(double distance)
+        {
+           //double decibellReduction = Math.Log((distance ), 2) * (-3);
+            //return Math.Pow(10, decibellReduction / 10.0);
+            return 1/(distance * distance);
+        }
     }
 
     [Serializable]
@@ -206,7 +273,7 @@ namespace Earlvik.ArtiStereo
         {
             set
             {
-                if(value < 0) throw new ArgumentException(" Point coordinate X should be non-negative, but was "+value);
+                //if(value < 0) throw new ArgumentException(" Point coordinate X should be non-negative, but was "+value);
                 _x = value;
             }
             get { return _x; }
@@ -215,7 +282,7 @@ namespace Earlvik.ArtiStereo
         {
             set
             {
-                if (value < 0) throw new ArgumentException(" Point coordinate Y should be non-negative, but was " + value);
+                //if (value < 0) throw new ArgumentException(" Point coordinate Y should be non-negative, but was " + value);
                 _y = value;
             }
             get { return _y; }
@@ -307,6 +374,21 @@ namespace Earlvik.ArtiStereo
     }
 
     [Serializable]
+    public class SoundPoint:Point
+    {
+        public SoundPoint(Point p) : base(p.X, p.Y)
+        {
+           
+        }
+        public SoundPoint(double x, double y) : base(x, y)
+        {
+            
+        }
+    
+        public Sound Sound { set; get; }
+    }
+
+    [Serializable]
     public class Wall:Line
     {
         public Material WallMaterial { set; get; }
@@ -324,12 +406,20 @@ namespace Earlvik.ArtiStereo
 
        public double ReflectionCoefft(double angle)
        {
-           double densityPart = (WallMaterial.Density/Material.Air.Density)*Math.Cos(angle);
-           double speedPart =
-               Math.Sqrt((Material.Air.SoundSpeed/WallMaterial.SoundSpeed)*
-                         (Material.Air.SoundSpeed/WallMaterial.SoundSpeed) - Math.Sin(angle)*Math.Sin(angle));
-           if (Geometry.EqualDouble(densityPart+speedPart,0) ) return 0;
-           return Math.Abs((densityPart - speedPart)/(densityPart + speedPart));
+           //double densityPart = (WallMaterial.Density/Material.Air.Density)*Math.Cos(angle);
+           //double speedPart =
+           //    Math.Sqrt((Material.Air.SoundSpeed/WallMaterial.SoundSpeed)*
+           //              (Material.Air.SoundSpeed/WallMaterial.SoundSpeed) - Math.Sin(angle)*Math.Sin(angle));
+           //if (Geometry.EqualDouble(densityPart+speedPart,0) ) return 0;
+           //return Math.Abs((densityPart - speedPart)/(densityPart + speedPart));
+           double impedancepart = (WallMaterial.Density*WallMaterial.SoundSpeed)/
+                                  (Material.Air.Density*Material.Air.SoundSpeed);
+           double tangentPart =1 - ((WallMaterial.SoundSpeed/Material.Air.SoundSpeed)*
+                          (WallMaterial.SoundSpeed/Material.Air.SoundSpeed) - 1)*Math.Tan(angle);
+           if (tangentPart < 0) return 1;
+           tangentPart = Math.Sqrt(tangentPart);
+           double result = (impedancepart - tangentPart)/(impedancepart + tangentPart);
+           return result;
        }
 
         public struct Material
@@ -342,7 +432,7 @@ namespace Earlvik.ArtiStereo
                 SoundSpeed = sspeed;
             }
             public static readonly Material OakWood = new Material(720,4000); 
-            public static readonly Material Air = new Material(1.20, 4000);
+            public static readonly Material Air = new Material(1.20, 340.29);
             public static readonly Material Glass = new Material(2500, 5000);
             public static readonly Material Granite = new Material(2800, 3950);
             public static readonly Material Brick = new Material(1800,3480);
@@ -524,7 +614,7 @@ namespace Earlvik.ArtiStereo
                 double angle = Angle(wall, direct);
                 if (Math.Abs(angle) < Eps) //the wall is parallel with the direct line
                 {
-                    return ParallelProjection(wall, new Point((source.X + listener.X) / 2, (source.Y + listener.Y) / 2));
+                    return ParallelProjection(wall, new Point((source.X + listener.X) / 2, (source.Y + listener.Y) / 2),false);
                 }
 
                 Point intersection = wall.GetIntersection(direct, true);
@@ -561,14 +651,14 @@ namespace Earlvik.ArtiStereo
 
                 }
 
-                Point endOfFarProjection = ParallelProjection(farParallel, nearPoint);
+                Point endOfFarProjection = ParallelProjection(farParallel, nearPoint,true);
 
                 double similarityCoefft = (shortDist) / (longDist - shortDist);
 
                 // Point on far parallel line which will be projected
                 Point farResultProjection = new Point((farPoint.X + similarityCoefft * endOfFarProjection.X) / (1 + similarityCoefft), (farPoint.Y + similarityCoefft * endOfFarProjection.Y) / (1 + similarityCoefft));
 
-                Point result = ParallelProjection(wall, farResultProjection);
+                Point result = ParallelProjection(wall, farResultProjection,false);
 
                 return result;
 
@@ -579,7 +669,7 @@ namespace Earlvik.ArtiStereo
             /// <param name="toLine"></param>
             /// <param name="point"></param>
             /// <returns></returns>
-            public static Point ParallelProjection(Line toLine, Point point)
+            public static Point ParallelProjection(Line toLine, Point point, bool wholeLine)
             {
                 //double A1 = fromLine.Start.Y - fromLine.End.Y;
                 //double B1 = fromLine.End.X - fromLine.Start.X;
@@ -589,16 +679,17 @@ namespace Earlvik.ArtiStereo
                 double B2 = toLine.End.X - toLine.Start.X;
                 double C2 = toLine.Start.X * toLine.End.Y - toLine.Start.Y * toLine.End.X;
 
-                if (Math.Abs(B2) < Eps) return new Point(-C2 / A2, point.Y);
+                if (EqualDouble(B2,0)) return new Point(-C2 / A2, point.Y);
+                if(EqualDouble(A2,0)) return new Point(point.X, toLine.Start.Y);
 
                 double angleCoefft = A2 / (-B2);
                 //double offset = C1/(-B1);
-
+               
                 Point start = new Point(0, point.Y + (1 / angleCoefft) * point.X);
                 Point end = new Point(1, point.Y + (1 / angleCoefft) * (point.X - 1));
                 Line normal = new Line(start, end);
                 Point intersection = toLine.GetIntersection(normal, true);
-                return OnSegment(toLine, intersection) ? intersection : null;
+                return (OnSegment(toLine, intersection) || wholeLine) ? intersection : null;
             }
 
             static public bool EqualDouble(double a, double b)
