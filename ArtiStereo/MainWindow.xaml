@@ -1,8 +1,30 @@
 ﻿<Window x:Class="Earlvik.ArtiStereo.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="MainWindow" Height="350" Width="525">
+        Title="ArtiStereo" Height="350" Width="525" WindowStartupLocation="CenterScreen">
     <Grid>
-        
+        <TabControl HorizontalAlignment="Stretch" Name="ASMainTab" VerticalAlignment="Stretch" UseLayoutRounding="False">
+            <TabItem Header="Room Generator" Name="FirstTab">
+                <Grid>
+                    <ComboBox Height="23" HorizontalAlignment="Left" Margin="6,6,0,0" Name="SimpleFormBox" VerticalAlignment="Top" Width="23" ToolTip="Simple wall forms" Foreground="Black">
+                        <ComboBox.Background>
+                            <ImageBrush ImageSource="/ArtiStereo;component/Images/SimpleForms.jpg" />
+                        </ComboBox.Background>
+                        <ComboBoxItem>
+                            <StackPanel Orientation="Horizontal">
+                                <Image Source="/ArtiStereo;component/Images/Round.bmp"></Image>
+                                <TextBlock Text="Round"></TextBlock>
+                            </StackPanel>
+                        </ComboBoxItem>
+                        <ComboBoxItem>
+                            <StackPanel Orientation="Horizontal">
+                                <Image Source="/ArtiStereo;component/Images/Rect.jpg"></Image>
+                                <TextBlock Text="Rectangle"></TextBlock>
+                            </StackPanel>
+                        </ComboBoxItem>
+                    </ComboBox>
+                </Grid>
+            </TabItem>
+        </TabControl>
     </Grid>
 </Window>

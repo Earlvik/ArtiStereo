@@ -6,6 +6,14 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ArtiStereoTests", "ArtiStereoTests\ArtiStereoTests.csproj", "{A8BA7D74-9218-445C-A639-5ACF3B5F4371}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{9A971F46-588C-40C1-B835-B001BA4EB52B}"
+<<<<<<< HEAD
+=======
+	ProjectSection(SolutionItems) = preProject
+		ArtiStereo.vsmdi = ArtiStereo.vsmdi
+		Local.testsettings = Local.testsettings
+		TraceAndTestImpact.testsettings = TraceAndTestImpact.testsettings
+	EndProjectSection
+>>>>>>> preliminary
 EndProject
 Global
 	GlobalSection(TestCaseManagementSettings) = postSolution

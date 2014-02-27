@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Drawing;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Windows;
@@ -23,8 +25,9 @@ namespace Earlvik.ArtiStereo
     {
         public MainWindow()
         {
-            MessageBoxResult test = MessageBox.Show("Yep, that works");
             InitializeComponent();
         }
+
+       
     }
 }
