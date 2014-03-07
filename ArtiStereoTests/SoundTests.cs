@@ -13,19 +13,11 @@ namespace ArtiStereoTests
         [TestMethod]
         public void ReadWriteTest()
         {
-         //   Exception ex = null;
-//              try
-           // {
+        
                 AS.Sound sound = AS.Sound.GetSoundFromWav(@"D:\sound.wav");
                 Assert.AreEqual(1,sound.Channels,"The number of channels was expected to be 1, but was: "+sound.Channels);
                 sound.CreateWav(@"D:\created.wav");
-         //   }
-          //  catch (Exception e)
-          //  {
-           //     ex = e;
-           //     throw;
-           // }
-          //  Assert.IsNull(ex,"Exception was thrown: "+ex.Message);
+         
         }
 
         [TestMethod]
@@ -62,10 +54,10 @@ namespace ArtiStereoTests
             room.AddWall(new AS.Wall(17, 0, 14, 10, mat));
             room.AddWall(new AS.Wall(2, 10, 14, 10, mat));
             AS.SoundPoint source = new AS.SoundPoint(12, 5);
-            source.Sound = AS.Sound.GetSoundFromWav(@"D:\sound.wav");
+            source.Sound = AS.Sound.GetSoundFromWav(@"D:\Whistling.wav");
             room.AddSource(source);
-            room.AddListener(new AS.SoundPoint(3, 7));
-            room.AddListener(new AS.SoundPoint(7, 7));
+            room.AddListener(new AS.ListenerPoint(3, 7,new AS.Line(0,0,-1,0),AS.ListenerPoint.Cardioid));
+            room.AddListener(new AS.ListenerPoint(7, 7, new AS.Line(0,0,1,0),AS.ListenerPoint.Cardioid ));
 
             //room.AddWall(new AS.Wall(0,0,9,0,mat));
             //room.AddWall(new AS.Wall(0,0,0,10,mat));

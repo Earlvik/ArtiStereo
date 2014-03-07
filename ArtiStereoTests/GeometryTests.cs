@@ -67,7 +67,7 @@ namespace ArtiStereoTests
         {
             AS.Line a = new AS.Line(1,2,2,6);
             AS.Line b = new AS.Line(2,2,6,1);
-            double angle = AS.Geometry.Angle(a, b);
+            double angle = AS.Geometry.Angle(a, b,false);
             Assert.IsTrue(Math.Abs(angle - Math.PI/2) <Eps,"Angle between lines had to be Pi/2, but was "+ angle);
         }
 
@@ -77,7 +77,7 @@ namespace ArtiStereoTests
             AS.Line a = new AS.Line(0,0,6,0);
             AS.Line b = new AS.Line(1,1,3,2);
             double trueResult = Math.Acos(2/Math.Sqrt(5));
-            double angle = AS.Geometry.Angle(a, b);
+            double angle = AS.Geometry.Angle(a, b,false);
             Assert.IsTrue(Math.Abs(angle-trueResult)<Eps,"Angle between lines had to be "+trueResult+", but was "+angle);
         }
 
@@ -132,8 +132,8 @@ namespace ArtiStereoTests
             room.AddWall(new AS.Wall(2,7,0,3,m));
             room.AddWall(new AS.Wall(0,3,2,0,m));
             room.AddSource(new AS.SoundPoint(4,1));
-            room.AddListener(new AS.SoundPoint(2,4));
-            room.AddListener(new AS.SoundPoint(5,4));
+            room.AddListener(new AS.ListenerPoint(2,4));
+            room.AddListener(new AS.ListenerPoint(5,4));
             Assert.IsTrue(room.IsValid(),"Room was invalid!");
         }
 
@@ -149,8 +149,8 @@ namespace ArtiStereoTests
             room.AddWall(new AS.Wall(2, 7, 0, 3, m));
             room.AddWall(new AS.Wall(0, 3, 2, 0, m));
             room.AddSource(new AS.SoundPoint(4, 1));
-            room.AddListener(new AS.SoundPoint(2, 4));
-            room.AddListener(new AS.SoundPoint(5, 7));
+            room.AddListener(new AS.ListenerPoint(2, 4));
+            room.AddListener(new AS.ListenerPoint(5, 7));
             Assert.IsTrue(!room.IsValid(), "Room was valid!");
         }
 
@@ -166,9 +166,32 @@ namespace ArtiStereoTests
             room.AddWall(new AS.Wall(2, 7, 0, 3, m));
             room.AddWall(new AS.Wall(0, 3, 2, 0, m));
             room.AddSource(new AS.SoundPoint(4, 1));
-            room.AddListener(new AS.SoundPoint(2, 4));
-            room.AddListener(new AS.SoundPoint(5, 4));
+            room.AddListener(new AS.ListenerPoint(2, 4));
+            room.AddListener(new AS.ListenerPoint(5, 4));
             Assert.IsTrue(!room.IsValid(), "Room was valid!");
+        }
+
+        [TestMethod]
+        public void DifferentAngles()
+        {
+            AS.Line[] array = new AS.Line[]
+                {
+                    new AS.Line(-2,0,0,0),
+                    new AS.Line(-2,2,0,0),
+                    new AS.Line(0,3,0,0),
+                    new AS.Line(2,2,0,0),
+                    new AS.Line(0,0,-2,0),
+                    new AS.Line(2,-2,0,0),
+                    new AS.Line(0,-3,0,0),
+                    new AS.Line(-2,-2,0,0), 
+                };
+
+            for (int i = 0; i < array.Length; i++)
+            {
+                //Console.WriteLine("Angle "+i+"*Pi/4  "+AS.Geometry.Angle(array[0],array[i] ,true));
+                double result = AS.Geometry.Angle(array[4], array[i], true);
+                Assert.IsTrue(AS.Geometry.EqualDouble(result, i*Math.PI/4),"Angle was supposed to be "+i+"*Pi/4, but was "+result);
+            }
         }
 
 

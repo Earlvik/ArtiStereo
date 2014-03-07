@@ -16,7 +16,7 @@ namespace Earlvik.ArtiStereo
         //lists of room elements
         private List<Wall> _walls;
         private List<SoundPoint> _sources;
-        private List<SoundPoint> _listeners;
+        private List<ListenerPoint> _listeners;
         //value for calculating reflection from ceiling
         public double CeilingHeight { set; get; }
 
@@ -24,7 +24,7 @@ namespace Earlvik.ArtiStereo
         {
             _walls = new List<Wall>();
             _sources = new List<SoundPoint>();
-            _listeners = new List<SoundPoint>();
+            _listeners = new List<ListenerPoint>();
         }
         /// <summary>
         /// Adds new wall to the room
@@ -49,7 +49,7 @@ namespace Earlvik.ArtiStereo
         /// Adds new listener to the room
         /// </summary>
         /// <param name="listener"></param>
-        public void AddListener(SoundPoint listener)
+        public void AddListener(ListenerPoint listener)
         {
             if (!ListenerNotExists(listener)) throw new Exception("Trying to add already existent listener");
             if (!PointNotOnWall(listener)) throw new Exception("Trying to add listener on a wall");
@@ -75,14 +75,14 @@ namespace Earlvik.ArtiStereo
         /// deletes certain listener
         /// </summary>
         /// <param name="listener"></param>
-        public void RemoveListener(SoundPoint listener)
+        public void RemoveListener(ListenerPoint listener)
         {
             _listeners.Remove(listener);
         }
         //Public accessors to the lists
         public List<Wall> Walls { get { return _walls; } }
         public List<SoundPoint> Sources { get { return _sources; } }
-        public List<SoundPoint> Listeners { get { return _listeners; } }
+        public List<ListenerPoint> Listeners { get { return _listeners; } }
         //Methods checking correctness of elements being added
         bool WallNotExists(Wall testwall)
         {
@@ -195,18 +195,23 @@ namespace Earlvik.ArtiStereo
 
                 //double timeOffset = distance/airSSpeed*1000;
                 
-                foreach (SoundPoint listener in Listeners)
+                foreach (ListenerPoint listener in Listeners)
                 {
                     listener.Sound = new Sound(1, source.Sound.DiscretionRate, source.Sound.BitsPerSample);
+                    //Direct sound
                     if (CheckPath(new Line(source, listener)))
                     {
                         double distance = Geometry.Distance(listener, source);
                         double time = distance/airSSpeed*1000;
                         double percentReduction = SoundReduction(distance);
+                        if (listener.Directional)
+                        {
+                            percentReduction *= listener.GetReduction(new Line(source, listener));
+                        }
                         listener.Sound.Add(source.Sound.CopyWithVolume(percentReduction, 0), 0, 0,
                                            source.Sound.MillesecondsToSamples((int) time));
                     }
-
+                    //Primary reflections
                     foreach (Wall wall in Walls)
                     {
                         Point refPoint = Geometry.ReflectionPoint(wall, source, listener);
@@ -216,11 +221,15 @@ namespace Earlvik.ArtiStereo
                               CheckPath(new Line(refPoint, listener), wall))) continue;
                         Sound snd = new Sound(source.Sound);
                         //snd.SetVolume(SoundReduction(Geometry.Distance(source, refPoint)),0);
-                        Double angle = Geometry.Angle(new Line(source, refPoint), new Line(refPoint, listener)) / 2;
+                        Double angle = Geometry.Angle(new Line(source, refPoint), new Line(refPoint, listener),false) / 2;
                         Double refCoefft = wall.ReflectionCoefft(angle);
                         //snd.SetVolume(refCoefft,0);
                         Double reductionCoefft = (SoundReduction(Geometry.Distance(source, refPoint) +
                                                                  Geometry.Distance(refPoint, listener))) * refCoefft;
+                        if (listener.Directional)
+                        {
+                            reductionCoefft *= listener.GetReduction(new Line(refPoint, listener));
+                        }
                         snd.SetVolume(reductionCoefft, 0);
                         Double time = (Geometry.Distance(source, refPoint) + Geometry.Distance(refPoint, listener)) /
                                       airSSpeed * 1000;
@@ -386,6 +395,60 @@ namespace Earlvik.ArtiStereo
         }
     
         public Sound Sound { set; get; }
+    }
+
+    public class ListenerPoint:SoundPoint
+    {
+        private DirectionalDecrease _decreaseFunction;
+        private Line _direction;
+        public bool Directional { private set; get; }
+        public ListenerPoint(Point p, Line direction, DirectionalDecrease decreaseFunction) : base(p)
+        {
+            _direction = direction;
+            _decreaseFunction = decreaseFunction;
+            Directional = true;
+
+        }
+        public ListenerPoint(double x, double y, Line direction, DirectionalDecrease decreaseFunction) : base(x, y)
+        {
+            _direction = direction;
+            _decreaseFunction = decreaseFunction;
+            Directional = true;
+
+        }
+
+        public ListenerPoint(Point p)
+            : base(p)
+        {
+            Directional = false;
+        }
+        public ListenerPoint(double x, double y)
+            : base(x, y)
+        {
+            Directional = false;
+        }
+
+        public double GetReduction(Line incomingRay)
+        {
+            if (_decreaseFunction == null) return 1;
+            return _decreaseFunction(incomingRay, _direction);
+        }
+
+        public delegate double DirectionalDecrease(Line incomingRay, Line micDirection);
+
+        public static DirectionalDecrease Cardioid = delegate(Line incomingRay, Line micDirection)
+            {
+                //double offsetAngle = Geometry.Angle(new Line(0, 0, 1, 0), micDirection,true) ;
+               // if (Geometry.EqualDouble(offsetAngle, 0)) offsetAngle = Math.PI;
+               // else if (Geometry.EqualDouble(offsetAngle, Math.PI)) offsetAngle = 0;
+
+                double incomingAngle = Geometry.Angle(micDirection, incomingRay,true);
+                double r = 0.5*(1 + Math.Cos(incomingAngle));
+                double decibellReduction = 25*(r-1);
+                double percentReduction = Math.Pow(10, decibellReduction/20.0);
+                return percentReduction;
+            };
+        
     }
 
     [Serializable]
@@ -581,8 +644,9 @@ namespace Earlvik.ArtiStereo
             /// </summary>
             /// <param name="a"></param>
             /// <param name="b"></param>
+            /// <param name="asVector">Should method consider lines as directional vectors or as infinite lines</param>
             /// <returns>angle in radians</returns>
-            public static double Angle(Line a, Line b)
+            public static double Angle(Line a, Line b, bool asVector)
             {
                 //line equations parameters
                 double A1 = a.Start.Y - a.End.Y;
@@ -593,13 +657,33 @@ namespace Earlvik.ArtiStereo
                 double B2 = b.End.X - b.Start.X;
                 // double C2 = b.Start.X * b.End.Y - b.Start.Y * b.End.X;
 
+                Point checkPoint = new Point(b.Start.X -B2,b.Start.Y+A2);
                 //parallel and peprendicular lines
-                if ((Math.Abs(B1) < Eps && Math.Abs(B2) < Eps) || (Math.Abs(A1) < Eps && Math.Abs(A2) < Eps) || Math.Abs((A1 / A2) - (B1 / B2)) < Eps) return 0;
-                if (Math.Abs(A1 * A2 + B1 * B2) < Eps) return Math.PI / 2;
+               if ((Math.Abs(B1) < Eps && Math.Abs(B2) < Eps) || (Math.Abs(A1) < Eps && Math.Abs(A2) < Eps) ||
+                        Math.Abs((A1/A2) - (B1/B2)) < Eps)
+                    {
+                        if (!asVector || A1*A2 <0 || B1*B2 <0 ) return 0;
+                        return Math.PI;
+                    }
+                    
+               
+                if (Math.Abs(A1*A2 + B1*B2) < Eps)
+                {
+                    if (!asVector || Direction(a, checkPoint) < 0) return Math.PI/2;
+                    return 3*Math.PI/2;
+                }
 
                 //other lines
                 double denom = Math.Sqrt((A1 * A1 + B1 * B1) * (A2 * A2 + B2 * B2));
-                return Math.Acos(Math.Abs(A1 * A2 + B1 * B2) / denom);
+                double nom = A1*A2 + B1*B2;
+                if (!asVector) nom = Math.Abs(nom);
+                else nom *= -1;
+                double result  = Math.Acos(nom / denom);
+                if (asVector && Direction(a, checkPoint) > 0)
+                {
+                    result = 2*Math.PI - result;
+                }
+                return result;
             }
             /// <summary>
             /// Calculates the point of primary reflection
@@ -611,7 +695,7 @@ namespace Earlvik.ArtiStereo
             public static Point ReflectionPoint(Line wall, Point source, Point listener)
             {
                 Line direct = new Line(source, listener);
-                double angle = Angle(wall, direct);
+                double angle = Angle(wall, direct,false);
                 if (Math.Abs(angle) < Eps) //the wall is parallel with the direct line
                 {
                     return ParallelProjection(wall, new Point((source.X + listener.X) / 2, (source.Y + listener.Y) / 2),false);
