@@ -194,21 +194,23 @@ namespace Earlvik.ArtiStereo
                 //double distance = Listeners.Min(x => Geometry.Distance(source, x));
 
                 //double timeOffset = distance/airSSpeed*1000;
-                
+                double directSoundLevel = SoundReduction(Listeners.Min(x=>Geometry.Distance(source,x)));
                 foreach (ListenerPoint listener in Listeners)
                 {
                     listener.Sound = new Sound(1, source.Sound.DiscretionRate, source.Sound.BitsPerSample);
+                    
                     //Direct sound
                     if (CheckPath(new Line(source, listener)))
                     {
                         double distance = Geometry.Distance(listener, source);
                         double time = distance/airSSpeed*1000;
-                        double percentReduction = SoundReduction(distance);
+                        double percentReduction = SoundReduction(distance) / directSoundLevel;
                         if (listener.Directional)
                         {
                             percentReduction *= listener.GetReduction(new Line(source, listener));
                         }
-                        listener.Sound.Add(source.Sound.CopyWithVolume(percentReduction, 0), 0, 0,
+                       
+                        listener.Sound.Add(source.Sound.CopyWithVolume(percentReduction,0), 0, 0,
                                            source.Sound.MillesecondsToSamples((int) time));
                     }
                     //Primary reflections
@@ -226,6 +228,7 @@ namespace Earlvik.ArtiStereo
                         //snd.SetVolume(refCoefft,0);
                         Double reductionCoefft = (SoundReduction(Geometry.Distance(source, refPoint) +
                                                                  Geometry.Distance(refPoint, listener))) * refCoefft;
+                        reductionCoefft /= directSoundLevel; //Adjusting volume to prevent distortion
                         if (listener.Directional)
                         {
                             reductionCoefft *= listener.GetReduction(new Line(refPoint, listener));

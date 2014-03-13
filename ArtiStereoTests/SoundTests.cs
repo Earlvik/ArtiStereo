@@ -14,8 +14,8 @@ namespace ArtiStereoTests
         public void ReadWriteTest()
         {
         
-                AS.Sound sound = AS.Sound.GetSoundFromWav(@"D:\sound.wav");
-                Assert.AreEqual(1,sound.Channels,"The number of channels was expected to be 1, but was: "+sound.Channels);
+                AS.Sound sound = AS.Sound.GetSoundFromWav(@"D:\sample1.wav");
+               // Assert.AreEqual(1,sound.Channels,"The number of channels was expected to be 1, but was: "+sound.Channels);
                 sound.CreateWav(@"D:\created.wav");
          
         }
@@ -23,17 +23,21 @@ namespace ArtiStereoTests
         [TestMethod]
         public void AddTest()
         {
-            AS.Sound sound = AS.Sound.GetSoundFromWav(@"D:\sound.wav");
-            AS.Sound second = AS.Sound.GetSoundFromWav(@"D:\Whistling.wav");
-            sound.Add(second,0,0,500);
-            sound.CreateWav(@"D:\new.wav");
+            AS.Sound sound = AS.Sound.GetSoundFromWav(@"D:\sine.wav");
+           // AS.Sound second = AS.Sound.GetSoundFromWav(@"D:\sine.wav");
+            sound.SetVolume(0.5,0);
+           // sound.SetVolume(0.5,1);
+            AS.Sound second = sound;
+            int offset = sound.MillesecondsToSamples(500);
+            sound.Add(second,0,0,offset+5);
+            sound.CreateWav(@"D:\new1.wav");
         }
 
         [TestMethod]
         public void SetVolumeTest()
         {
-            AS.Sound sound = AS.Sound.GetSoundFromWav(@"D:\sound.wav");
-            sound.SetVolume(95,0);
+            AS.Sound sound = AS.Sound.GetSoundFromWav(@"D:\sine.wav");
+            sound.SetVolume(0.6,0);
             sound.CreateWav(@"D:\volume.wav");
         }
 
@@ -79,6 +83,33 @@ namespace ArtiStereoTests
             sound.SetVolume(0.6,0);
             sound.SetVolume(0.6,1);
             sound.CreateWav(@"D:\result1.wav");
+        }
+    
+        [TestMethod]
+        public void PrimaryReflectionsHugeTest()
+        {
+            AS.Wall.Material mat = AS.Wall.Material.Brick;
+            AS.Room room = new AS.Room();
+            room.AddWall(new AS.Wall(0,5,10,0,mat));
+            room.AddWall(new AS.Wall(10,0,20,5,mat));
+            room.AddWall(new AS.Wall(20,5,20,45,mat));
+            room.AddWall(new AS.Wall(20,45,0,45,mat));
+            room.AddWall(new AS.Wall(0,45,0,5, mat));
+            AS.SoundPoint source = new AS.SoundPoint(10,40);
+            source.Sound = AS.Sound.GetSoundFromWav(@"D:\Whistling.wav");
+            room.AddSource(source);
+            room.AddListener(new AS.ListenerPoint(9,4));
+            room.AddListener(new AS.ListenerPoint(11,4));
+
+
+            room.CalculateSound();
+            AS.Sound sound = new AS.Sound(2, source.Sound.DiscretionRate, source.Sound.BitsPerSample);
+            sound.Add(room.Listeners[1].Sound, 0, 0, 0);
+            sound.Add(room.Listeners[0].Sound, 0, 1, 0);
+            sound.AdjustVolume();
+            sound.SetVolume(0.6, 0);
+            sound.SetVolume(0.6, 1);
+            sound.CreateWav(@"D:\www.wav");
         }
     }
 }

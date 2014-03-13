@@ -1,4 +1,5 @@
-﻿using System;
+﻿
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -12,7 +13,8 @@ namespace Earlvik.ArtiStereo
         private int _descretionRate;
         private int _bitsPerSample;
         private int[][] _sound;
-        private const int MaxValue = 32767;
+        private int MaxValue = 32767;
+        private const int Max16bit = 32767;
         public const int LEFT_CHANNEL = 0;
         public const int RIGHT_CHANNEL = 1;
 
@@ -63,7 +65,7 @@ namespace Earlvik.ArtiStereo
                // result._sound[0][i] =(int)(MaxValue* Math.Sin(x));
                 double x = (i/((double)result._descretionRate));
                 x = x - Math.Truncate(x);
-                result._sound[0][i] = (int) ((1 - Math.Sqrt(1 - x*x))*(MaxValue/2));
+                result._sound[0][i] = (int) ((1 - Math.Sqrt(1 - x*x))*(result.MaxValue/2));
             }
             return result;
         }
@@ -88,13 +90,14 @@ namespace Earlvik.ArtiStereo
             }
             pos += 8;
             int samples = (bytes.Length - pos) / (sound._bitsPerSample/8);
-            if (sound._channels == 2) samples /= 2;
+            if (sound._channels == 2) samples =(samples%2 == 0)?samples/2:samples/2+1;
             sound._sound = new int[sound._channels][];
             for (int i = 0; i < sound._channels; i++ )
             {
                 sound._sound[i] = new int[samples];
             }
             int j = 0;
+            sound.MaxValue = (int) (Math.Pow(256, sound._bitsPerSample/8)/2);
             while (pos < bytes.Length)
             {
                 for (int k = 0; k < sound._channels; k++)
@@ -111,13 +114,18 @@ namespace Earlvik.ArtiStereo
                         {
                             curSound += bytes[pos + i]*(int)Math.Pow(256, bytesNum - i - 1);
                         }
+                        if (curSound > sound.MaxValue + 1)
+                        {
+                            curSound -= 2*sound.MaxValue + 1;
+                        }
                         sound._sound[k][j] = curSound;
                     }
 
-                    pos += (sound._bitsPerSample/8);
+                    pos += sound._channels*(sound._bitsPerSample/8);
                 }
                 j++;
             }
+            
             return sound;
 
         }
@@ -125,7 +133,7 @@ namespace Earlvik.ArtiStereo
         public void CreateWav(string filename)
         {
             //FileStream file = new FileStream(filename, FileMode.OpenOrCreate);
-            byte[] data = new byte[44+_channels*_sound[0].Length*2];
+            byte[] data = new byte[44+_channels*_sound[0].Length*_bitsPerSample/8];
             //RIFF word
             data[0] = 0x52;
             data[1] = 0x49;
@@ -186,23 +194,44 @@ namespace Earlvik.ArtiStereo
             data[41] = (byte)((subChunk2Size % 65536 - (data[40])) / 256);
             data[42] = (byte)((subChunk2Size % 16777216 - data[40] - data[41] * 256) / 65536);
             data[43] = (byte)((subChunk2Size - data[40] - data[41] * 256 - data[42] * 65536) / 16777216);
-
+            int bytesPerSample = _bitsPerSample/8;
             //Actual sound data
-            for (int i = 44; i < data.Length-2*_channels+1;)
+            for (int i = 44; i < data.Length-bytesPerSample*_channels+1;)
             {
-                int pos = (i - 44)/(2*_channels);
+                int pos = (i - 44)/(bytesPerSample*_channels);
                 for (int j = 0; j < _channels; j++)
                 {
                     if (pos >= _sound[j].Length)
                     {
-                        data[i] = 0;
-                        data[i + 1] = 0;
+                        for (int k = 0; k < bytesPerSample; k++)
+                        {
+                            data[i + k] = 0;
+                        }
                     }
                     else
                     {
-                        IntToBytes(_sound[j][pos], out data[i], out data[i + 1]);
+                        if (bytesPerSample == 2)
+                        {
+                            IntToBytes(_sound[j][pos], out data[i], out data[i + 1]);
+                        }
+                        else
+                        {
+                            double sample = _sound[j][pos];
+                            if (sample > MaxValue) sample = MaxValue;
+                            if (sample < -MaxValue) sample = -MaxValue;
+                            if (sample < 0)
+                            {
+                                sample += 2 * MaxValue + 1;
+                            }
+                            for (int k = 0; k < bytesPerSample; k++)
+                            {
+                                data[i + k] = (byte) ((sample%Math.Pow(256, bytesPerSample - k)) -
+                                                      (sample%Math.Pow(256, bytesPerSample - k-1)));
+                            }
+                        }
+
                     }
-                    i += 2;
+                    i += bytesPerSample;
                 }
             }
             File.WriteAllBytes(filename,data);
@@ -210,7 +239,7 @@ namespace Earlvik.ArtiStereo
 
         public void Add(Sound sound,int channelFrom,int channelTo, int offset)
         {
-            
+
             if(channelTo>_channels || channelTo<0) throw new ArgumentException("Channel number invalid");
             if (channelFrom > sound._channels || channelFrom<0) throw new ArgumentException("Channel number invalid");
             if(_descretionRate != sound._descretionRate) throw new ArgumentException("different discretion rates");
@@ -271,20 +300,20 @@ namespace Earlvik.ArtiStereo
         static int BytesToInt(byte firstByte, byte secondByte)
         {
             int value =  (secondByte << 8) | firstByte;
-            if (value > MaxValue+1)
+            if (value > Max16bit+1)
             {
-                value -= 2*MaxValue+1;
+                value -= 2*Max16bit+1;
             }
            return value;
         }
 
         static void IntToBytes(int value, out byte firstByte, out byte secondByte)
         {
-            if (value > MaxValue) value = MaxValue;
-            if (value < -MaxValue) value = -MaxValue;
+            if (value > Max16bit) value = Max16bit;
+            if (value < -Max16bit) value = -Max16bit;
            if (value < 0)
            {
-               value += 2*MaxValue + 1;
+               value += 2 * Max16bit + 1;
            }
             firstByte = (byte)(value%256.0);
             secondByte = (byte) (value/256.0);
