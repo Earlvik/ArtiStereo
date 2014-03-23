@@ -204,7 +204,7 @@ namespace Earlvik.ArtiStereo
                     {
                         double distance = Geometry.Distance(listener, source);
                         double time = distance/airSSpeed*1000;
-                        double percentReduction = SoundReduction(distance) / directSoundLevel;
+                        double percentReduction = SoundReduction(distance);// / directSoundLevel;
                         if (listener.Directional)
                         {
                             percentReduction *= listener.GetReduction(new Line(source, listener));
@@ -228,7 +228,7 @@ namespace Earlvik.ArtiStereo
                         //snd.SetVolume(refCoefft,0);
                         Double reductionCoefft = (SoundReduction(Geometry.Distance(source, refPoint) +
                                                                  Geometry.Distance(refPoint, listener))) * refCoefft;
-                        reductionCoefft /= directSoundLevel; //Adjusting volume to prevent distortion
+                        //reductionCoefft /= directSoundLevel; //Adjusting volume to prevent distortion
                         if (listener.Directional)
                         {
                             reductionCoefft *= listener.GetReduction(new Line(refPoint, listener));

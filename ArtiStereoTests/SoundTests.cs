@@ -96,7 +96,7 @@ namespace ArtiStereoTests
             room.AddWall(new AS.Wall(20,45,0,45,mat));
             room.AddWall(new AS.Wall(0,45,0,5, mat));
             AS.SoundPoint source = new AS.SoundPoint(10,40);
-            source.Sound = AS.Sound.GetSoundFromWav(@"D:\Whistling.wav");
+            source.Sound = AS.Sound.GetSoundFromWav(@"D:\sweep.wav");
             room.AddSource(source);
             room.AddListener(new AS.ListenerPoint(9,4));
             room.AddListener(new AS.ListenerPoint(11,4));
@@ -107,9 +107,9 @@ namespace ArtiStereoTests
             sound.Add(room.Listeners[1].Sound, 0, 0, 0);
             sound.Add(room.Listeners[0].Sound, 0, 1, 0);
             sound.AdjustVolume();
-            sound.SetVolume(0.6, 0);
-            sound.SetVolume(0.6, 1);
-            sound.CreateWav(@"D:\www.wav");
+            //sound.SetVolume(0.6, 0);
+            //sound.SetVolume(0.6, 1);
+            sound.CreateWav(@"D:\sweepR.wav");
         }
     }
 }
