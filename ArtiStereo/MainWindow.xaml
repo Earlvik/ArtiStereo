@@ -2,13 +2,32 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:layoutToolkit="clr-namespace:System.Windows.Controls;assembly=System.Windows.Controls.Layout.Toolkit"
-        Title="ArtiStereo" Height="527" Width="1054" WindowStartupLocation="CenterScreen">
+        Title="ArtiStereo" Height="527" Width="1054" WindowStartupLocation="CenterScreen"
+        MinWidth="300" MinHeight="300" SizeChanged="Window_SizeChanged">
     
     <Grid>
-        <TabControl HorizontalAlignment="Stretch" Name="ASMainTab" VerticalAlignment="Stretch" UseLayoutRounding="False">
+        <TabControl HorizontalAlignment="Stretch" Name="ASMainTab" VerticalAlignment="Stretch" UseLayoutRounding="False" >
             <TabItem Header="Room Generator" Name="FirstTab">
+                
                 <Grid>
-                    <Menu VerticalAlignment="Top" HorizontalAlignment="Stretch">
+       
+                    <DockPanel LastChildFill="True" Name="RoomDock">
+                        <StatusBar DockPanel.Dock="Bottom" HorizontalAlignment="Stretch" Height="20" >
+                            <StatusBar.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"></ColumnDefinition>
+                                            <ColumnDefinition Width="*"></ColumnDefinition>
+                                        </Grid.ColumnDefinitions>
+                                    </Grid>
+                                </ItemsPanelTemplate>
+                            </StatusBar.ItemsPanel>                            
+                            <StatusBarItem Grid.Column="1">
+                                <ProgressBar Name="SoundProgressBar" Value="50" Foreground="Beige" Height="10" Width="300" HorizontalAlignment="Stretch"/>
+                            </StatusBarItem>
+                        </StatusBar>
+                        <Menu  HorizontalAlignment="Stretch" DockPanel.Dock="Top">
                         <MenuItem Header="File">
                             <MenuItem Header="Open Room file" Name="RoomOpenMenuItem"></MenuItem>
                             <MenuItem Header="New Room file" Name ="RoomNewMenuItem"></MenuItem>
@@ -18,10 +37,10 @@
                             <MenuItem Header="Save Sound Result file" Name="SoundSaveMenuItem"></MenuItem>
                         </MenuItem>
                         <MenuItem Header="Edit">
-                            <MenuItem Header="Undo" Name="UndoMenuItem"></MenuItem>
-                            <MenuItem Header="Redo" Name="RedoMenuItem"></MenuItem>
+                            <MenuItem Header="Undo" Name="UndoMenuItem" Click="UndoMenuItem_Click"></MenuItem>
+                            <MenuItem Header="Redo" Name="RedoMenuItem" Click="RedoMenuItem_Click"></MenuItem>
                             <Separator/>
-                            <MenuItem Header="Clear Workplace" Name ="ClearMenuItem"></MenuItem>
+                            <MenuItem Header="Clear Workplace" Name ="ClearMenuItem" Click="ClearMenuItem_Click"></MenuItem>
                         </MenuItem>
                         <MenuItem Header="Tools">
                             <MenuItem Header="Material Manager" Name="MaterialMenuItem"></MenuItem>
@@ -32,23 +51,77 @@
                             <MenuItem Header="About" Name="AboutMenuItem"></MenuItem>
                         </MenuItem>
                     </Menu>
-                    
-                    <StackPanel HorizontalAlignment="Right" VerticalAlignment="Center" Width="200">
-                     <Border CornerRadius="6" BorderBrush="CadetBlue" Background="Lavender" BorderThickness="2">
-                       <layoutToolkit:Accordion Name="Accordion">
+                        <Border CornerRadius="6" BorderBrush="CadetBlue" Background="Lavender" BorderThickness="2" VerticalAlignment="Top">
+                            <StackPanel DockPanel.Dock="Left" Width="30">
+                         
+                                <ToggleButton x:Name="RectButton" Height="20" Width="20" HorizontalAlignment="Left" ToolTip="Rectangle" Margin="5" Style="{DynamicResource ToolButton}">
+                                    <ToggleButton.Background>
+                                        <ImageBrush ImageSource="Images/Rect.jpg" Stretch="Uniform"/>
+                                    </ToggleButton.Background>
+                                </ToggleButton>
+                                <ToggleButton x:Name="LineButton" Height="20" Width="20" HorizontalAlignment="Left" ToolTip="Linear Wall" Margin="5" Style="{DynamicResource ToolButton}">
+                                    <ToggleButton.Background>
+                                        <ImageBrush Stretch="Uniform" ImageSource="Images/wall.jpg"/>
+                                    </ToggleButton.Background>
+                                </ToggleButton>
+                                <ToggleButton x:Name="SourceButton" Height="20" Width="20" ToolTip="Sound Source" Margin="5" Style="{DynamicResource ToolButton}">
+                                    <ToggleButton.Background>
+                                        <ImageBrush Stretch="Uniform" ImageSource="Images/source.jpg"/>
+                                    </ToggleButton.Background>
+                                </ToggleButton>
+
+                                <ToggleButton x:Name="ListenerButton" Height="20" Width="20" ToolTip="Sound Listener" Margin="5" Style="{DynamicResource ToolButton}">
+                                    <ToggleButton.Background>
+                                        <ImageBrush Stretch="Uniform" ImageSource="Images/mic2.jpg"/>
+                                    </ToggleButton.Background>
+                                </ToggleButton>
+
+                            </StackPanel>
+                        </Border>
+                        <StackPanel VerticalAlignment="Top" HorizontalAlignment="Right" DockPanel.Dock="Right" Width="200">
+                     <Border CornerRadius="6" BorderBrush="CadetBlue" Background="Lavender" BorderThickness="3">
+                       <layoutToolkit:Accordion Name="Accordion" HorizontalAlignment="Stretch">
                            <layoutToolkit:AccordionItem Header="Properties" Name ="PropsAccItem">
-                               <Canvas Name="PropsCanvas"></Canvas>
-                           </layoutToolkit:AccordionItem>
+                                        <Grid Background="Beige" Name="PropsGrid">
+                                            <StackPanel Name="PropsPanel">
+                                                <TextBlock FontSize="20" Text="Preferences" TextAlignment="Center" Width="200"/>
+                                            </StackPanel>
+                                        </Grid>
+                                    </layoutToolkit:AccordionItem>
                            <layoutToolkit:AccordionItem Header="Presets" Name="PresetsAccItem">
-                               <Canvas Name="Presetscanvas"></Canvas>
+                                        <Grid Background="Beige" Name="PresetsGrid">
+                                            <StackPanel Name="PresetsPanel">
+                                                <TextBlock FontSize="20" Text="Presets" TextAlignment="Center" Width="200"/>
+                                            </StackPanel>
+                                        </Grid>
                            </layoutToolkit:AccordionItem>
-                           <layoutToolkit:AccordionItem>
-                               <Canvas Name="RecordCanvas"></Canvas>
-                           </layoutToolkit:AccordionItem>
-                       </layoutToolkit:Accordion>  
+                                    <layoutToolkit:AccordionItem Header="Record Options">
+                                        <Grid Background="Beige" Name="RecGrid">
+                                            <StackPanel Name="RecPanel">
+                                                <TextBlock FontSize="20" Text="Record Options" TextAlignment="Center" Width="200"/>
+                                            </StackPanel>
+                                        </Grid>
+                                    </layoutToolkit:AccordionItem>
+                                </layoutToolkit:Accordion>  
                      </Border>   
                     </StackPanel>
+                        <Border BorderThickness="1" BorderBrush="CadetBlue" Margin="2">
+                            <Border.Effect>
+                                <DropShadowEffect ShadowDepth="0"
+                                    Color="CadetBlue"
+                                    Opacity="1"
+                                    BlurRadius="5"/>
+                            </Border.Effect>
+                            <Canvas Name="RoomCanvas"  SizeChanged="RoomCanvas_SizeChanged" ClipToBounds="True" MouseUp="RoomCanvas_MouseUp" Background="Transparent">
+                                
+                            </Canvas>
+                        </Border>
+
+                    </DockPanel>
                 </Grid>
+            </TabItem>
+            <TabItem Header="Sound Manager" Name="SecondTab">
+                
             </TabItem>
         </TabControl>
         

@@ -5,7 +5,8 @@ using System.Linq;
 
 namespace Earlvik.ArtiStereo
 {
-   
+    //Marker
+    interface IRoomObject { }
     /// <summary>
     /// Class that stores and provides information about premises where to model sound waves
     /// </summary>
@@ -30,30 +31,33 @@ namespace Earlvik.ArtiStereo
         /// Adds new wall to the room
         /// </summary>
         /// <param name="wall"></param>
-        public void AddWall(Wall wall)
+        public Wall AddWall(Wall wall)
         {
             if(!WallNotExists(wall)) throw new Exception("Trying to add already existent wall");
             _walls.Add(wall);
+            return wall;
         }
         /// <summary>
         /// Adds new sound source to the room
         /// </summary>
         /// <param name="source"></param>
-        public void AddSource(SoundPoint source)
+        public SoundPoint AddSource(SoundPoint source)
         {
             if(!SourceNotExists(source)) throw new Exception("Trying to add already existent source");
             if(!PointNotOnWall(source)) throw new Exception("Trying to add source on a wall");
             _sources.Add(source);
+            return source;
         }
         /// <summary>
         /// Adds new listener to the room
         /// </summary>
         /// <param name="listener"></param>
-        public void AddListener(ListenerPoint listener)
+        public ListenerPoint AddListener(ListenerPoint listener)
         {
             if (!ListenerNotExists(listener)) throw new Exception("Trying to add already existent listener");
             if (!PointNotOnWall(listener)) throw new Exception("Trying to add listener on a wall");
             _listeners.Add(listener);
+            return listener;
         }
         /// <summary>
         /// deletes certain wall
@@ -305,6 +309,12 @@ namespace Earlvik.ArtiStereo
             Y = y;
         }
 
+        public Point(System.Windows.Point point)
+        {
+            _x = point.X;
+            _y = point.Y;
+        }
+
         public Point()
         {
             X = 0;
@@ -386,7 +396,7 @@ namespace Earlvik.ArtiStereo
     }
 
     [Serializable]
-    public class SoundPoint:Point
+    public class SoundPoint:Point,IRoomObject
     {
         public SoundPoint(Point p) : base(p.X, p.Y)
         {
@@ -405,6 +415,12 @@ namespace Earlvik.ArtiStereo
         private DirectionalDecrease _decreaseFunction;
         private Line _direction;
         public bool Directional { private set; get; }
+
+        public double DirectionAngle
+        {
+            get { return Geometry.Angle(new Line(0, 0, 1, 0), _direction, true); }
+        }
+
         public ListenerPoint(Point p, Line direction, DirectionalDecrease decreaseFunction) : base(p)
         {
             _direction = direction;
@@ -455,20 +471,64 @@ namespace Earlvik.ArtiStereo
     }
 
     [Serializable]
-    public class Wall:Line
+    public class Wall:Line,IRoomObject
     {
+
         public Material WallMaterial { set; get; }
+        public MaterialPreset MatPreset;
 
         public Wall(Point start, Point end, Material material) : base(start, end)
         {
             WallMaterial = material;
+            MatPreset = MaterialPreset.None;
         }
 
         public Wall(double xstart, double ystart, double xend, double yend, Material material)
             : base(xstart, ystart, xend, yend)
         {
             WallMaterial = material;
+            MatPreset = MaterialPreset.None;
         }
+
+        public Wall(Point start, Point end, MaterialPreset preset)
+            : base(start, end)
+        {
+            MatPreset = preset;
+            switch (preset)
+            {
+                case MaterialPreset.OakWood:
+                    {
+                        WallMaterial = Material.OakWood;
+                        break;
+                    }
+                case MaterialPreset.Granite:
+                    {
+                        WallMaterial = Material.Granite;
+                        break;
+                    }
+                case MaterialPreset.Glass:
+                    {
+                        WallMaterial = Material.Glass;
+                        break;
+                    }
+                case MaterialPreset.Brick:
+                    {
+                        WallMaterial = Material.Brick;
+                        break;
+                    }
+                case MaterialPreset.Rubber:
+                    {
+                        WallMaterial = Material.Rubber;
+                        break;
+                    }
+                default:
+                    {
+                        WallMaterial = Material.OakWood;
+                        break;
+                    }
+            }
+        }
+        public Wall(double xstart, double ystart, double xend, double yend, MaterialPreset preset) : this(new Point(xstart, ystart), new Point(xend, yend), preset) { }
 
        public double ReflectionCoefft(double angle)
        {
@@ -506,6 +566,7 @@ namespace Earlvik.ArtiStereo
            
                 
         }
+        public enum MaterialPreset { OakWood, Air, Glass, Granite, Brick, Rubber, None}
 
         
     }
