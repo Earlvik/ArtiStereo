@@ -13,7 +13,7 @@ namespace Earlvik.ArtiStereo
     [Serializable]
    public class Room
     {
-        private const double distanceNearSource = 0.2;
+        
         //lists of room elements
         private List<Wall> _walls;
         private List<SoundPoint> _sources;
@@ -238,6 +238,7 @@ namespace Earlvik.ArtiStereo
                             reductionCoefft *= listener.GetReduction(new Line(refPoint, listener));
                         }
                         snd.SetVolume(reductionCoefft, 0);
+
                         Double time = (Geometry.Distance(source, refPoint) + Geometry.Distance(refPoint, listener)) /
                                       airSSpeed * 1000;
                         listener.Sound.Add(snd, 0, 0, (int)time);
@@ -406,32 +407,52 @@ namespace Earlvik.ArtiStereo
         {
             
         }
-    
-        public Sound Sound { set; get; }
-    }
 
+        [NonSerialized] private Sound mSound;
+
+        public Sound Sound
+        {
+            set { mSound = value; }
+            get { return mSound; }
+        }
+    }
+    [Serializable]
     public class ListenerPoint:SoundPoint
     {
-        private DirectionalDecrease _decreaseFunction;
-        private Line _direction;
+        private readonly DirectionalDecrease mDecreaseFunction;
+        private readonly Line mDirection;
         public bool Directional { private set; get; }
 
         public double DirectionAngle
         {
-            get { return Geometry.Angle(new Line(0, 0, 1, 0), _direction, true); }
+            get { return Geometry.Angle(new Line(0, 0, 1, 0), mDirection, true); }
         }
 
+        public double DirectionX
+        {
+            set { if(mDirection!=null) mDirection.End.X = value; }
+            get { return mDirection==null?0:mDirection.End.X; }
+        }
+
+        public double DirectionY
+        {
+            set { if(mDirection!=null) mDirection.End.Y = value; }
+            get
+            {
+                return mDirection == null ? 0:mDirection.End.Y;
+            }
+        }
         public ListenerPoint(Point p, Line direction, DirectionalDecrease decreaseFunction) : base(p)
         {
-            _direction = direction;
-            _decreaseFunction = decreaseFunction;
+            mDirection = direction;
+            mDecreaseFunction = decreaseFunction;
             Directional = true;
 
         }
         public ListenerPoint(double x, double y, Line direction, DirectionalDecrease decreaseFunction) : base(x, y)
         {
-            _direction = direction;
-            _decreaseFunction = decreaseFunction;
+            mDirection = direction;
+            mDecreaseFunction = decreaseFunction;
             Directional = true;
 
         }
@@ -449,8 +470,8 @@ namespace Earlvik.ArtiStereo
 
         public double GetReduction(Line incomingRay)
         {
-            if (_decreaseFunction == null) return 1;
-            return _decreaseFunction(incomingRay, _direction);
+            if (mDecreaseFunction == null) return 1;
+            return mDecreaseFunction(incomingRay, mDirection);
         }
 
         public delegate double DirectionalDecrease(Line incomingRay, Line micDirection);
@@ -524,7 +545,7 @@ namespace Earlvik.ArtiStereo
                 default:
                     {
                         WallMaterial = Material.OakWood;
-                        break;
+                       break;
                     }
             }
         }
@@ -547,23 +568,29 @@ namespace Earlvik.ArtiStereo
            double result = (impedancepart - tangentPart)/(impedancepart + tangentPart);
            return result;
        }
-
+        [Serializable]
         public struct Material
         {
             public double Density;
             public double SoundSpeed;
-            Material(double dens, double sspeed)
+            public double Low;
+            public double Medium;
+            public double High;
+            Material(double dens, double sspeed, double low = 0, double medium = 0, double high = 0)
             {
                 Density = dens;
                 SoundSpeed = sspeed;
+                Low = low;
+                Medium = medium;
+                High = high;
             }
-            public static readonly Material OakWood = new Material(720,4000); 
+            public static readonly Material OakWood = new Material(720,4000,0.09,0.08,0.1); 
             public static readonly Material Air = new Material(1.20, 340.29);
-            public static readonly Material Glass = new Material(2500, 5000);
-            public static readonly Material Granite = new Material(2800, 3950);
-            public static readonly Material Brick = new Material(1800,3480);
+            public static readonly Material Glass = new Material(2500, 5000,0.035,0.037,0.2);
+            public static readonly Material Granite = new Material(2800, 3950,0.01,0.02,0.03);
+            public static readonly Material Brick = new Material(1800,3480,0.01,0.02,0.02);
             public static readonly Material Rubber = new Material(1050, 54);
-           
+            public static readonly Material OakWoodCarpeted = new Material(720,4000,0.01,0.1,0.4);
                 
         }
         public enum MaterialPreset { OakWood, Air, Glass, Granite, Brick, Rubber, None}
@@ -621,8 +648,8 @@ namespace Earlvik.ArtiStereo
                 double xp = point.X;
                 double yp = point.Y;
 
-                return (Math.Min(xs, xe) <= xp) && (xp <= Math.Max(xs, xe)) &&
-                       (Math.Min(ys, ye) <= yp) && (yp <= Math.Max(ys, ye));
+                return (Math.Min(xs, xe) < xp || Geometry.EqualDouble(Math.Min(xs, xe), xp)) && (xp < Math.Max(xs, xe) || Geometry.EqualDouble(Math.Max(xs, xe), xp)) &&
+                       (Math.Min(ys, ye) < yp || Geometry.EqualDouble(Math.Min(ys, ye), yp)) && (yp < Math.Max(ys, ye) || Geometry.EqualDouble(Math.Max(ys, ye), yp));
             }
             /// <summary>
             /// Calculates a point where one line intersects the other
@@ -667,7 +694,7 @@ namespace Earlvik.ArtiStereo
                        y4 = second.End.Y;
                 if (Math.Abs((y4 - y3) * (x2 - x1) - (x4 - x3) * (y2 - y1)) < Eps) return null;
                 double coefftA = ((x4 - x3) * (y1 - y3) - (y4 - y3) * (x1 - x3)) / ((y4 - y3) * (x2 - x1) - (x4 - x3) * (y2 - y1));
-                double coefftB = ((x2 - x1) * (y1 - y3) - (y2 - y1) * (x1 - x3)) / ((y4 - y3) * (x2 - x1) - (x4 - x3) * (y2 - y1));
+               // double coefftB = ((x2 - x1) * (y1 - y3) - (y2 - y1) * (x1 - x3)) / ((y4 - y3) * (x2 - x1) - (x4 - x3) * (y2 - y1));
                 if (wholeLine || (d2 * d1 < 0 && d3 * d4 < 0))
                 {
                     return new Point(x1 + coefftA * (x2 - x1), y1 + coefftA * (y2 - y1));
@@ -692,7 +719,7 @@ namespace Earlvik.ArtiStereo
             /// <param name="point"></param>
             /// <param name="line"></param>
             /// <returns></returns>
-            static double Distance(Point point, Line line)
+            public static double Distance(Point point, Line line)
             {
                 //Line equation parameters
                 double A = line.Start.Y - line.End.Y;
@@ -827,8 +854,16 @@ namespace Earlvik.ArtiStereo
                 double B2 = toLine.End.X - toLine.Start.X;
                 double C2 = toLine.Start.X * toLine.End.Y - toLine.Start.Y * toLine.End.X;
 
-                if (EqualDouble(B2,0)) return new Point(-C2 / A2, point.Y);
-                if(EqualDouble(A2,0)) return new Point(point.X, toLine.Start.Y);
+                if (EqualDouble(B2, 0))
+                {
+                    Point projection =  new Point(-C2 / A2, point.Y);
+                    return (OnSegment(toLine, projection) || wholeLine) ? projection : null;
+                }
+                if (EqualDouble(A2, 0))
+                {
+                    Point projection =  new Point(point.X, toLine.Start.Y);
+                    return (OnSegment(toLine, projection) || wholeLine) ? projection : null;
+                }
 
                 double angleCoefft = A2 / (-B2);
                 //double offset = C1/(-B1);

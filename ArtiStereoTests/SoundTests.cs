@@ -14,7 +14,7 @@ namespace ArtiStereoTests
         public void ReadWriteTest()
         {
         
-                AS.Sound sound = AS.Sound.GetSoundFromWav(@"D:\sample1.wav");
+                AS.Sound sound = AS.Sound.GetSoundFromWav(@"D:\Whistling.wav");
                // Assert.AreEqual(1,sound.Channels,"The number of channels was expected to be 1, but was: "+sound.Channels);
                 sound.CreateWav(@"D:\created.wav");
          
@@ -23,12 +23,12 @@ namespace ArtiStereoTests
         [TestMethod]
         public void AddTest()
         {
-            AS.Sound sound = AS.Sound.GetSoundFromWav(@"D:\sine.wav");
-           // AS.Sound second = AS.Sound.GetSoundFromWav(@"D:\sine.wav");
+            AS.Sound second = AS.Sound.GetSoundFromWav(@"D:\Whistling.wav");
+            AS.Sound sound = AS.Sound.GetSoundFromWav(@"D:\sound.wav");
             sound.SetVolume(0.5,0);
-           // sound.SetVolume(0.5,1);
-            AS.Sound second = sound;
-            int offset = sound.MillesecondsToSamples(500);
+            second.SetVolume(0.5,0);
+            
+            int offset = sound.MillesecondsToSamples(2500);
             sound.Add(second,0,0,offset+5);
             sound.CreateWav(@"D:\new1.wav");
         }
@@ -36,15 +36,15 @@ namespace ArtiStereoTests
         [TestMethod]
         public void SetVolumeTest()
         {
-            AS.Sound sound = AS.Sound.GetSoundFromWav(@"D:\sine.wav");
-            sound.SetVolume(0.6,0);
+            AS.Sound sound = AS.Sound.GetSoundFromWav(@"D:\sound.wav");
+            sound.SetVolume(0.2,0);
             sound.CreateWav(@"D:\volume.wav");
         }
 
        [TestMethod]
        public void UserSoundTest()
        {
-           AS.Sound sound = AS.Sound.SimpleWave(5000);
+           AS.Sound sound = AS.Sound.SimpleWave(400);
            sound.CreateWav(@"D:\shit.wav");
        }
 
@@ -110,6 +110,22 @@ namespace ArtiStereoTests
             //sound.SetVolume(0.6, 0);
             //sound.SetVolume(0.6, 1);
             sound.CreateWav(@"D:\sweepR.wav");
+        }
+
+        [TestMethod]
+        public void BellFilterTest()
+        {
+            AS.Sound sound = AS.Sound.GetSoundFromWav(@"D:\sweep.wav");
+            sound.BellFilter(18000,0.5,0.05,0);
+            sound.CreateWav(@"D:\bell2.wav");
+        }
+
+        [TestMethod]
+        public void ShelfFilterTest()
+        {
+            AS.Sound sound = AS.Sound.GetSoundFromWav(@"D:\sweep.wav");
+            sound.ShelfFilter(18000, .5, .2, 0,AS.Filter.High);
+            sound.CreateWav(@"D:\shelf2.wav");
         }
     }
 }
