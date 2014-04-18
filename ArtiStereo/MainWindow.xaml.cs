@@ -2,17 +2,15 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Runtime.Remoting.Messaging;
 using System.Runtime.Serialization.Formatters.Binary;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Input;
-using System.Windows.Media.Imaging;
-using Shapes = System.Windows.Shapes;
-using Microsoft.Win32;
 using System.Windows.Controls.Primitives;
-using Brushes = System.Windows.Media.Brushes;
-
+using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using System.Windows.Shapes;
+using Microsoft.Win32;
 
 namespace Earlvik.ArtiStereo
 
@@ -22,19 +20,23 @@ namespace Earlvik.ArtiStereo
     /// </summary>
     public partial class MainWindow : Window
     {
-        const int pixelPerMeter = 40;
+        private const int rightPanelWidth = 250;
+        //Number of toolbar buttons
         const int buttonNumber=4;
-        private int mChosenButton = -1;
-        private Sound mBaseSound;
-        private Sound ResultSound;
-        private IRoomObject mSelectedRoomObject;
+        const int pixelPerMeter = 40;
+        //List of handlers assigned to canvas mouseUp event
+        readonly List<MouseButtonEventHandler> mCanvasMousehandlers = new List<MouseButtonEventHandler>();
         
         readonly List<UIElement> mMarkers = new List<UIElement>();
-        readonly List<MouseButtonEventHandler> mCanvasMousehandlers = new List<MouseButtonEventHandler>();
         readonly List<IRoomObject> mRedoElements = new List<IRoomObject>();
-        readonly List<IRoomObject> mUndoElements = new List<IRoomObject>();
-        Room mRoom;
         readonly ToggleButton[] mToolButtons = new ToggleButton[buttonNumber];
+        readonly List<IRoomObject> mUndoElements = new List<IRoomObject>();
+        private Sound mBaseSound;
+        private int mChosenButton = -1;
+        private Sound mResultSound;
+        //Room object
+        Room mRoom;
+        private IRoomObject mSelectedRoomObject;
         public MainWindow()
         {
             InitializeComponent();
@@ -76,6 +78,28 @@ namespace Earlvik.ArtiStereo
 
         }
 
+        private void AddMarker(System.Windows.Point position)
+        {
+            var first = new Ellipse { Fill = Brushes.Black, Stroke = Brushes.Black };
+            first.Width = first.Height = 5;
+            Canvas.SetLeft(first, position.X);
+            Canvas.SetTop(first, position.Y);
+            first.Visibility = Visibility.Visible;
+            mMarkers.Add(first);
+        }
+
+        private void ClearMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            ((TextBlock) PropsPanel.Children[0]).Text = "Properties";
+            PropsPanel.Children.RemoveRange(1, PropsPanel.Children.Count - 1);
+            mRoom = new Room();
+            mMarkers.Clear();
+            DrawRoom();
+        }
+
+        /// <summary>
+        /// Method of repainting room objects on canvas based on mRoom objects
+        /// </summary>
         private void DrawRoom()
         {
             RoomCanvas.Children.Clear();
@@ -86,7 +110,7 @@ namespace Earlvik.ArtiStereo
             int i = 0;
             while(i*dy<RoomCanvas.ActualHeight-20){
                 i++;
-                Shapes.Line lineH = new Shapes.Line();
+                System.Windows.Shapes.Line lineH = new System.Windows.Shapes.Line();
                 lineH.StrokeThickness = 0.1;
                 lineH.Stroke = Brushes.Black;
                 lineH.X1 = 0;
@@ -99,7 +123,7 @@ namespace Earlvik.ArtiStereo
             i = 0;
             while(i*dx<RoomCanvas.ActualWidth-20){
                 i++;
-                Shapes.Line lineV = new Shapes.Line();
+                System.Windows.Shapes.Line lineV = new System.Windows.Shapes.Line();
                 lineV.StrokeThickness = 0.1;
                 lineV.Stroke = Brushes.Black;
                 lineV.X1 = i*dx;
@@ -116,7 +140,7 @@ namespace Earlvik.ArtiStereo
 
             foreach (Wall wall in mRoom.Walls)
             {
-                Shapes.Line line = new Shapes.Line
+                System.Windows.Shapes.Line line = new System.Windows.Shapes.Line
                 {
                     X1 = pixelPerMeter*wall.Start.X,
                     X2 = pixelPerMeter*wall.End.X,
@@ -185,7 +209,7 @@ namespace Earlvik.ArtiStereo
                 Canvas.SetLeft(image,x);
                 if (ReferenceEquals(listener, mSelectedRoomObject))
                 {
-                    var ellipse = new Shapes.Ellipse();
+                    var ellipse = new Ellipse();
                     ellipse.Width = picSize;
                     ellipse.Height = picSize;
                     ellipse.Stroke = Brushes.Chartreuse;
@@ -200,7 +224,7 @@ namespace Earlvik.ArtiStereo
                 if (listener.Directional)
                 {
                     double angle = listener.DirectionAngle;
-                    var line = new Shapes.Line();
+                    var line = new System.Windows.Shapes.Line();
                     line.X1 = x + (picSize/2);
                     line.Y1 = y + (picSize/2);
                     line.X2 = x+(picSize/2) + Math.Cos(angle) * (picSize/2);
@@ -226,7 +250,7 @@ namespace Earlvik.ArtiStereo
                 Canvas.SetLeft(image, x);
                 if (ReferenceEquals(source, mSelectedRoomObject))
                 {
-                    Shapes.Ellipse ellipse = new Shapes.Ellipse();
+                    Ellipse ellipse = new Ellipse();
                     ellipse.Width = picSize;
                     ellipse.Height = picSize;
                     ellipse.Stroke = Brushes.Chartreuse;
@@ -245,58 +269,56 @@ namespace Earlvik.ArtiStereo
             }
         }
 
-        private void SoundOpenMenuItem_Click(object sender, RoutedEventArgs e)
+        private void RecordButton_Click(object sender, RoutedEventArgs e)
         {
-            OpenFileDialog dialog = new OpenFileDialog {CheckPathExists = true, CheckFileExists = true, Filter = "Wave Sound Files (*.wav)|*.wav"};
-            bool? result = dialog.ShowDialog();
-            if (result == true)
+            if (!mRoom.IsValid())
             {
-                mBaseSound = Sound.GetSoundFromWav(dialog.FileName);
-                RecordButton.IsEnabled = true;
-                MessageBox.Show("Successfully opened " + dialog.FileName,"Sound Open",MessageBoxButton.OK);
-                foreach (SoundPoint source in mRoom.Sources)
+                MessageBox.Show(this, "Room is invalid, it should be closed by walls");
+                return;
+            }
+            try
+            {
+                ListenerPoint left = mRoom.Listeners[0];
+                ListenerPoint right = mRoom.Listeners[0];
+                for (int i = 0; i < mRoom.Listeners.Count; i++)
                 {
-                    source.Sound = mBaseSound;
+                    if (left.X > mRoom.Listeners[i].X) left = mRoom.Listeners[i];
+                    if (right.X < mRoom.Listeners[i].X) right = mRoom.Listeners[i];
                 }
+                mRoom.CalculateSound();
+                mResultSound = new Sound(mRoom.Listeners.Count, mBaseSound.DiscretionRate, mBaseSound.BitsPerSample);
+                mResultSound.Add(left.Sound, 0, 0, 0);
+                mResultSound.Add(right.Sound, 0, 1, 0);
+                mResultSound.AdjustVolume(0.75);
+                SoundSaveMenuItem.IsEnabled = true;
+            }
+            catch (Exception exception)
+            {
+                MessageBox.Show(this, "Error ocured during recording process: " + exception.Message);
             }
         }
 
-        private void ToolButtonToggled(object sender, RoutedEventArgs e)
+        private void RedoMenuItem_Click(object sender, RoutedEventArgs e)
         {
             ((TextBlock) PropsPanel.Children[0]).Text = "Properties";
             PropsPanel.Children.RemoveRange(1, PropsPanel.Children.Count - 1);
-            mSelectedRoomObject = null;
-            int chosen = -1;
-            mMarkers.Clear();
-            DrawRoom();
-            foreach (MouseButtonEventHandler handler in mCanvasMousehandlers)
+            IRoomObject lastObject = mRedoElements.Last();
+            mUndoElements.Add(lastObject);
+            mRedoElements.Remove(lastObject);
+            if (lastObject is Wall)
             {
-                RoomCanvas.MouseUp -= handler;
+                mRoom.AddWall(lastObject as Wall);
             }
-            RoomCanvas.MouseUp -= RoomCanvas_MouseUp;
-            RoomCanvas.MouseUp+=RoomCanvas_MouseUp;
-            for (int i = 0; i < buttonNumber; i++)
+            else if (lastObject is ListenerPoint)
             {
-                
-                if (mToolButtons[i] == sender)
-                {
-                    chosen = i;
-                }
-                else
-                {
-                    mToolButtons[i].IsChecked = false;
-                }
-                mChosenButton = chosen;
+                mRoom.AddListener(lastObject as ListenerPoint);
             }
-        }
-
-        private void Window_SizeChanged(object sender, SizeChangedEventArgs e)
-        {
-            SoundProgressBar.Width = Width / 2-20;
-        }
-
-        private void RoomCanvas_SizeChanged(object sender, SizeChangedEventArgs e)
-        {
+            else
+            {
+                mRoom.AddSource(lastObject as SoundPoint);
+            }
+            if (mRedoElements.Count == 0) RedoMenuItem.IsEnabled = false;
+            UndoMenuItem.IsEnabled = true;
             DrawRoom();
         }
 
@@ -436,7 +458,7 @@ namespace Earlvik.ArtiStereo
                     if (mSelectedRoomObject is Wall)
                     {
                         Wall wall = mSelectedRoomObject as Wall;
-                       UpdateWallProps(wall);
+                        UpdateWallProps(wall);
 
                     }
                     else if (mSelectedRoomObject is ListenerPoint)
@@ -455,86 +477,165 @@ namespace Earlvik.ArtiStereo
             DrawRoom();
         }
 
-        private void UpdateSourceProps(SoundPoint source)
+        private void RoomCanvas_SizeChanged(object sender, SizeChangedEventArgs e)
         {
-            PropsPanel.Children.Clear();
-            TextBlock name = new TextBlock
-            {
-                FontSize = 20,
-                Text = "SOURCE",
-                TextAlignment = TextAlignment.Center,
-                Width = 200
-            };
-            PropsPanel.Children.Add(name);
-            TextBlock location = new TextBlock { FontSize = 14, Text = "Location", Width = 200, TextAlignment = TextAlignment.Center };
-            PropsPanel.Children.Add(location);
-            StackPanel locationPanel = new StackPanel { Orientation = Orientation.Horizontal, Width = 200 };
-            TextBlock xblock = new TextBlock { FontSize = 10, Text = "X: ", Margin = new Thickness(5, 5, 5, 0) };
-            locationPanel.Children.Add(xblock);
-            TextBox xbox = new TextBox { FontSize = 10, Text = source.X + "", Width = 30, TextAlignment = TextAlignment.Left };
-            locationPanel.Children.Add(xbox);
-            TextBlock yblock = new TextBlock { FontSize = 10, Text = "Y: ", Margin = new Thickness(5, 5, 5, 0) };
-            locationPanel.Children.Add(yblock);
-            TextBox ybox = new TextBox { FontSize = 10, Text = source.Y + "", Width = 30, TextAlignment = TextAlignment.Left };
-            locationPanel.Children.Add(ybox);
-            PropsPanel.Children.Add(locationPanel);
-            Button deleteButton = new Button { Content = "Delete source", HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(10, 10, 10, 10) };
-            PropsPanel.Children.Add(deleteButton);
-
-            xbox.TextChanged += delegate
-            {
-                double newValue;
-                if (!double.TryParse(xbox.Text, out newValue)) return;
-                for (int i = 0; i < mRoom.Sources.Count; i++)
-                {
-                    if (mRoom.Sources[i] == (SoundPoint)mSelectedRoomObject)
-                    {
-                        mRoom.Sources[i].X = newValue;
-                        DrawRoom();
-                        return;
-                    }
-                }
-
-            };
-            xbox.LostFocus += delegate
-            {
-                var sourcePoint = mSelectedRoomObject as SoundPoint;
-                if (sourcePoint != null)
-                    xbox.Text = sourcePoint.X + "";
-            };
-
-            ybox.TextChanged += delegate
-            {
-                double newValue;
-                if (!double.TryParse(ybox.Text, out newValue)) return;
-                for (int i = 0; i < mRoom.Sources.Count; i++)
-                {
-                    if (mRoom.Sources[i] == (SoundPoint)mSelectedRoomObject)
-                    {
-                        mRoom.Sources[i].Y = newValue;
-                        DrawRoom();
-                        return;
-                    }
-                }
-
-            };
-            ybox.LostFocus += delegate
-            {
-                var sourcePoint = mSelectedRoomObject as SoundPoint;
-                if (sourcePoint != null)
-                    ybox.Text = sourcePoint.Y + "";
-            };
-
-            
-            deleteButton.Click += delegate
-            {
-                ((TextBlock)PropsPanel.Children[0]).Text = "Properties";
-                PropsPanel.Children.RemoveRange(1, PropsPanel.Children.Count - 1);
-                mRoom.RemoveSource(mSelectedRoomObject as SoundPoint);
-                mSelectedRoomObject = null;
-                DrawRoom();
-            };
+            DrawRoom();
         }
+
+        private void RoomOpenMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            OpenFileDialog dialog = new OpenFileDialog { CheckFileExists = true, Filter = "Serialized room files (*.asr)|*.asr" };
+            if (dialog.ShowDialog(this) == true)
+            {
+                BinaryFormatter formatter = new BinaryFormatter();
+                using (FileStream stream = new FileStream(dialog.FileName, FileMode.Open))
+                {
+                    try
+                    {
+                        mRoom = (Room) formatter.Deserialize(stream);
+                        DrawRoom();
+                    }
+                    catch (Exception exception)
+                    {
+                        MessageBox.Show(this, "Error occured during opening process: " + exception.Message);
+                    }
+                }
+            }
+        }
+
+        private void RoomSaveMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            SaveFileDialog dialog = new SaveFileDialog { AddExtension = true, CheckPathExists = true, Filter = "Serialized room files (*.asr)|*.asr" };
+            bool? result = dialog.ShowDialog(this);
+            if (result == true)
+            {
+                BinaryFormatter formatter = new BinaryFormatter();
+                using (FileStream stream = new FileStream(dialog.FileName, FileMode.OpenOrCreate))
+                {
+                    try
+                    {
+                        formatter.Serialize(stream, mRoom);
+                    }
+                    catch (Exception exception)
+                    {
+                        MessageBox.Show(this, "Error occured during saving process: " + exception.Message);
+                    }
+                }
+            }
+        }
+
+        private IRoomObject SelectObject(Point point)
+        {
+            IRoomObject result = null;
+            double distance = 0.3;
+            foreach (Wall wall in mRoom.Walls)
+            {
+                if (Geometry.Distance(point, wall) < distance && Geometry.ParallelProjection(wall,point,false)!=null)
+                {
+                    distance = Geometry.Distance(point, wall);
+                    result = wall;
+                }
+            }
+            foreach (SoundPoint source in mRoom.Sources)
+            {
+                if (Geometry.Distance(point, source) < distance)
+                {
+                    distance = Geometry.Distance(point, source);
+                    result = source;
+                }
+            }
+            foreach (ListenerPoint listener in mRoom.Listeners)
+            {
+                if (Geometry.Distance(point, listener) < distance)
+                {
+                    distance = Geometry.Distance(point, listener);
+                    result = listener;
+                }
+            }
+            return result;
+        }
+
+        private void SoundOpenMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            OpenFileDialog dialog = new OpenFileDialog {CheckPathExists = true, CheckFileExists = true, Filter = "Wave Sound Files (*.wav)|*.wav"};
+            bool? result = dialog.ShowDialog();
+            if (result == true)
+            {
+                mBaseSound = Sound.GetSoundFromWav(dialog.FileName);
+                RecordButton.IsEnabled = true;
+                MessageBox.Show("Successfully opened " + dialog.FileName,"Sound Open",MessageBoxButton.OK);
+                foreach (SoundPoint source in mRoom.Sources)
+                {
+                    source.Sound = mBaseSound;
+                }
+            }
+        }
+
+        private void SoundSaveMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            if (mResultSound != null)
+            {
+                SaveFileDialog dialog = new SaveFileDialog { AddExtension = true, CheckPathExists = true, Filter = "Wave Sound Files (*.wav)|*.wav" };
+                if (dialog.ShowDialog(this) == true)
+                {
+                    mResultSound.CreateWav(dialog.FileName);
+                }
+            }
+        }
+
+        private void ToolButtonToggled(object sender, RoutedEventArgs e)
+        {
+            ((TextBlock) PropsPanel.Children[0]).Text = "Properties";
+            PropsPanel.Children.RemoveRange(1, PropsPanel.Children.Count - 1);
+            mSelectedRoomObject = null;
+            int chosen = -1;
+            mMarkers.Clear();
+            DrawRoom();
+            foreach (MouseButtonEventHandler handler in mCanvasMousehandlers)
+            {
+                RoomCanvas.MouseUp -= handler;
+            }
+            RoomCanvas.MouseUp -= RoomCanvas_MouseUp;
+            RoomCanvas.MouseUp+=RoomCanvas_MouseUp;
+            for (int i = 0; i < buttonNumber; i++)
+            {
+                
+                if (mToolButtons[i] == sender)
+                {
+                    chosen = i;
+                }
+                else
+                {
+                    mToolButtons[i].IsChecked = false;
+                }
+                mChosenButton = chosen;
+            }
+        }
+
+        private void UndoMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            ((TextBlock) PropsPanel.Children[0]).Text = "Properties";
+            PropsPanel.Children.RemoveRange(1, PropsPanel.Children.Count - 1);
+            IRoomObject lastObject = mUndoElements.Last();
+            mRedoElements.Add(lastObject);
+            mUndoElements.Remove(lastObject);
+            if (lastObject is Wall)
+            {
+                mRoom.RemoveWall(lastObject as Wall);
+            }
+            else if (lastObject is ListenerPoint)
+            {
+                mRoom.RemoveListener(lastObject as ListenerPoint);
+            }
+            else
+            {
+                mRoom.RemoveSource(lastObject as SoundPoint);
+            }
+            if (mUndoElements.Count == 0) UndoMenuItem.IsEnabled = false;
+            RedoMenuItem.IsEnabled = true;
+            DrawRoom();
+        }
+
         private void UpdateListenerProps(ListenerPoint listener)
         {
             PropsPanel.Children.Clear();
@@ -543,12 +644,12 @@ namespace Earlvik.ArtiStereo
                 FontSize = 20,
                 Text = "LISTENER",
                 TextAlignment = TextAlignment.Center,
-                Width = 200
+                Width = rightPanelWidth
             };
             PropsPanel.Children.Add(name);
-            TextBlock location = new TextBlock { FontSize = 14, Text = "Location", Width = 200, TextAlignment = TextAlignment.Center };
+            TextBlock location = new TextBlock { FontSize = 14, Text = "Location", Width = rightPanelWidth, TextAlignment = TextAlignment.Center };
             PropsPanel.Children.Add(location);
-            StackPanel locationPanel = new StackPanel { Orientation = Orientation.Horizontal, Width = 200 };
+            StackPanel locationPanel = new StackPanel { Orientation = Orientation.Horizontal, Width = rightPanelWidth };
             TextBlock xblock = new TextBlock { FontSize = 10, Text = "X: ", Margin = new Thickness(5, 5, 5, 0) };
             locationPanel.Children.Add(xblock);
             TextBox xbox = new TextBox{ FontSize = 10, Text = listener.X + "", Width = 30, TextAlignment = TextAlignment.Left };
@@ -559,15 +660,15 @@ namespace Earlvik.ArtiStereo
             locationPanel.Children.Add(ybox);
             PropsPanel.Children.Add(locationPanel);
 
-            CheckBox directional = new CheckBox{Width = 200, Content = "Directional", IsChecked = listener.Directional};
+            CheckBox directional = new CheckBox{Width = rightPanelWidth, Content = "Directional", IsChecked = listener.Directional};
             PropsPanel.Children.Add(directional);
             TextBox xdirbox = null;
             TextBox ydirbox = null;
             if (listener.Directional)
             {
-                TextBlock direction = new TextBlock { FontSize = 14, Text = "Direction vector", Width = 200, TextAlignment = TextAlignment.Center };
+                TextBlock direction = new TextBlock { FontSize = 14, Text = "Direction vector", Width = rightPanelWidth, TextAlignment = TextAlignment.Center };
                 PropsPanel.Children.Add(direction);
-                StackPanel directionPanel = new StackPanel { Orientation = Orientation.Horizontal, Width = 200 };
+                StackPanel directionPanel = new StackPanel { Orientation = Orientation.Horizontal, Width = rightPanelWidth };
                 TextBlock xdirblock = new TextBlock { FontSize = 10, Text = "X: ", Margin = new Thickness(5, 5, 5, 0) };
                 directionPanel.Children.Add(xdirblock);
                 xdirbox = new TextBox { FontSize = 10, Text = listener.DirectionX + "", Width = 30, TextAlignment = TextAlignment.Left };
@@ -701,114 +802,99 @@ namespace Earlvik.ArtiStereo
                         ydirbox.Text = listenerPoint.DirectionY + "";
                 };
 
-                Button deleteButton = new Button { Content = "Delete listener", HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(10, 10, 10, 10) };
-                PropsPanel.Children.Add(deleteButton);
-                deleteButton.Click += delegate
+                
+            }
+            Button deleteButton = new Button { Content = "Delete listener", HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(10, 10, 10, 10) };
+            PropsPanel.Children.Add(deleteButton);
+            deleteButton.Click += delegate
+            {
+                ((TextBlock)PropsPanel.Children[0]).Text = "Properties";
+                PropsPanel.Children.RemoveRange(1, PropsPanel.Children.Count - 1);
+                mRoom.RemoveListener(mSelectedRoomObject as ListenerPoint);
+                mSelectedRoomObject = null;
+                DrawRoom();
+            };
+        }
+
+        private void UpdateSourceProps(SoundPoint source)
+        {
+            PropsPanel.Children.Clear();
+            TextBlock name = new TextBlock
+            {
+                FontSize = 20,
+                Text = "SOURCE",
+                TextAlignment = TextAlignment.Center,
+                Width = rightPanelWidth
+            };
+            PropsPanel.Children.Add(name);
+            TextBlock location = new TextBlock { FontSize = 14, Text = "Location", Width = rightPanelWidth, TextAlignment = TextAlignment.Center };
+            PropsPanel.Children.Add(location);
+            StackPanel locationPanel = new StackPanel { Orientation = Orientation.Horizontal, Width = rightPanelWidth };
+            TextBlock xblock = new TextBlock { FontSize = 10, Text = "X: ", Margin = new Thickness(5, 5, 5, 0) };
+            locationPanel.Children.Add(xblock);
+            TextBox xbox = new TextBox { FontSize = 10, Text = source.X + "", Width = 30, TextAlignment = TextAlignment.Left };
+            locationPanel.Children.Add(xbox);
+            TextBlock yblock = new TextBlock { FontSize = 10, Text = "Y: ", Margin = new Thickness(5, 5, 5, 0) };
+            locationPanel.Children.Add(yblock);
+            TextBox ybox = new TextBox { FontSize = 10, Text = source.Y + "", Width = 30, TextAlignment = TextAlignment.Left };
+            locationPanel.Children.Add(ybox);
+            PropsPanel.Children.Add(locationPanel);
+            Button deleteButton = new Button { Content = "Delete source", HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(10, 10, 10, 10) };
+            PropsPanel.Children.Add(deleteButton);
+
+            xbox.TextChanged += delegate
+            {
+                double newValue;
+                if (!double.TryParse(xbox.Text, out newValue)) return;
+                for (int i = 0; i < mRoom.Sources.Count; i++)
                 {
-                    ((TextBlock)PropsPanel.Children[0]).Text = "Properties";
-                    PropsPanel.Children.RemoveRange(1, PropsPanel.Children.Count - 1);
-                    mRoom.RemoveListener(mSelectedRoomObject as ListenerPoint);
-                    mSelectedRoomObject = null;
-                    DrawRoom();
-                };
-            }
-        }
-
-        private void AddMarker(System.Windows.Point position)
-        {
-            Shapes.Ellipse first = new Shapes.Ellipse { Fill = Brushes.Black, Stroke = Brushes.Black };
-            first.Width = first.Height = 5;
-            Canvas.SetLeft(first, position.X);
-            Canvas.SetTop(first, position.Y);
-            first.Visibility = Visibility.Visible;
-            mMarkers.Add(first);
-        }
-        private void UndoMenuItem_Click(object sender, RoutedEventArgs e)
-        {
-            ((TextBlock) PropsPanel.Children[0]).Text = "Properties";
-            PropsPanel.Children.RemoveRange(1, PropsPanel.Children.Count - 1);
-            IRoomObject lastObject = mUndoElements.Last();
-            mRedoElements.Add(lastObject);
-            mUndoElements.Remove(lastObject);
-            if (lastObject is Wall)
-            {
-                mRoom.RemoveWall(lastObject as Wall);
-            }
-            else if (lastObject is ListenerPoint)
-            {
-                mRoom.RemoveListener(lastObject as ListenerPoint);
-            }
-            else
-            {
-                mRoom.RemoveSource(lastObject as SoundPoint);
-            }
-            if (mUndoElements.Count == 0) UndoMenuItem.IsEnabled = false;
-            RedoMenuItem.IsEnabled = true;
-            DrawRoom();
-        }
-
-        private void RedoMenuItem_Click(object sender, RoutedEventArgs e)
-        {
-            ((TextBlock) PropsPanel.Children[0]).Text = "Properties";
-            PropsPanel.Children.RemoveRange(1, PropsPanel.Children.Count - 1);
-            IRoomObject lastObject = mRedoElements.Last();
-            mUndoElements.Add(lastObject);
-            mRedoElements.Remove(lastObject);
-            if (lastObject is Wall)
-            {
-                mRoom.AddWall(lastObject as Wall);
-            }
-            else if (lastObject is ListenerPoint)
-            {
-                mRoom.AddListener(lastObject as ListenerPoint);
-            }
-            else
-            {
-                mRoom.AddSource(lastObject as SoundPoint);
-            }
-            if (mRedoElements.Count == 0) RedoMenuItem.IsEnabled = false;
-            UndoMenuItem.IsEnabled = true;
-            DrawRoom();
-        }
-
-        private void ClearMenuItem_Click(object sender, RoutedEventArgs e)
-        {
-            ((TextBlock) PropsPanel.Children[0]).Text = "Properties";
-            PropsPanel.Children.RemoveRange(1, PropsPanel.Children.Count - 1);
-            mRoom = new Room();
-            mMarkers.Clear();
-            DrawRoom();
-        }
-
-        private IRoomObject SelectObject(Point point)
-        {
-            IRoomObject result = null;
-            double distance = 0.3;
-            foreach (Wall wall in mRoom.Walls)
-            {
-                if (Geometry.Distance(point, wall) < distance && Geometry.ParallelProjection(wall,point,false)!=null)
-                {
-                    distance = Geometry.Distance(point, wall);
-                    result = wall;
+                    if (mRoom.Sources[i] == (SoundPoint)mSelectedRoomObject)
+                    {
+                        mRoom.Sources[i].X = newValue;
+                        DrawRoom();
+                        return;
+                    }
                 }
-            }
-            foreach (SoundPoint source in mRoom.Sources)
+
+            };
+            xbox.LostFocus += delegate
             {
-                if (Geometry.Distance(point, source) < distance)
-                {
-                    distance = Geometry.Distance(point, source);
-                    result = source;
-                }
-            }
-            foreach (ListenerPoint listener in mRoom.Listeners)
+                var sourcePoint = mSelectedRoomObject as SoundPoint;
+                if (sourcePoint != null)
+                    xbox.Text = sourcePoint.X + "";
+            };
+
+            ybox.TextChanged += delegate
             {
-                if (Geometry.Distance(point, listener) < distance)
+                double newValue;
+                if (!double.TryParse(ybox.Text, out newValue)) return;
+                for (int i = 0; i < mRoom.Sources.Count; i++)
                 {
-                    distance = Geometry.Distance(point, listener);
-                    result = listener;
+                    if (mRoom.Sources[i] == (SoundPoint)mSelectedRoomObject)
+                    {
+                        mRoom.Sources[i].Y = newValue;
+                        DrawRoom();
+                        return;
+                    }
                 }
-            }
-            return result;
+
+            };
+            ybox.LostFocus += delegate
+            {
+                var sourcePoint = mSelectedRoomObject as SoundPoint;
+                if (sourcePoint != null)
+                    ybox.Text = sourcePoint.Y + "";
+            };
+
+            
+            deleteButton.Click += delegate
+            {
+                ((TextBlock)PropsPanel.Children[0]).Text = "Properties";
+                PropsPanel.Children.RemoveRange(1, PropsPanel.Children.Count - 1);
+                mRoom.RemoveSource(mSelectedRoomObject as SoundPoint);
+                mSelectedRoomObject = null;
+                DrawRoom();
+            };
         }
 
         private void UpdateWallProps(Wall wall)
@@ -819,10 +905,10 @@ namespace Earlvik.ArtiStereo
                 FontSize = 20,
                 Text = "WALL",
                 TextAlignment = TextAlignment.Center,
-                Width = 200
+                Width = rightPanelWidth
             };
             PropsPanel.Children.Add(name);
-            TextBlock material = new TextBlock { FontSize = 14, Text = "Material", Width = 200 };
+            TextBlock material = new TextBlock { FontSize = 14, Text = "Material", Width = rightPanelWidth };
             material.TextAlignment = TextAlignment.Center;
             PropsPanel.Children.Add(material);
             ComboBox materialBox = new ComboBox();
@@ -835,29 +921,29 @@ namespace Earlvik.ArtiStereo
             materialBox.Items.Add(Wall.MaterialPreset.None);
             materialBox.SelectedItem = wall.MatPreset;
             PropsPanel.Children.Add(materialBox);
-            TextBlock matParams = new TextBlock { FontSize = 14, Text = "Material paramaters", Width = 200, TextAlignment = TextAlignment.Center };
+            TextBlock matParams = new TextBlock { FontSize = 14, Text = "Material paramaters", Width = rightPanelWidth, TextAlignment = TextAlignment.Center };
             PropsPanel.Children.Add(matParams);
-            TextBlock density = new TextBlock { FontSize = 10, Text = "Density", Width = 200, TextAlignment = TextAlignment.Left };
+            TextBlock density = new TextBlock { FontSize = 10, Text = "Density", Width = rightPanelWidth, TextAlignment = TextAlignment.Left };
             PropsPanel.Children.Add(density);
-            TextBox densityBox = new TextBox { FontSize = 10, Text = wall.WallMaterial.Density + "", Width = 200, TextAlignment = TextAlignment.Left };
+            TextBox densityBox = new TextBox { FontSize = 10, Text = wall.WallMaterial.Density + "", Width = rightPanelWidth, TextAlignment = TextAlignment.Left };
             PropsPanel.Children.Add(densityBox);
-            TextBlock soundspeed = new TextBlock { FontSize = 10, Text = "Speed of sound", Width = 200, TextAlignment = TextAlignment.Left };
+            TextBlock soundspeed = new TextBlock { FontSize = 10, Text = "Speed of sound", Width = rightPanelWidth, TextAlignment = TextAlignment.Left };
             PropsPanel.Children.Add(soundspeed);
 
             TextBox soundspeedBox = new TextBox
             {
                 FontSize = 10,
                 Text = wall.WallMaterial.SoundSpeed + "",
-                Width = 200,
+                Width = rightPanelWidth,
                 TextAlignment = TextAlignment.Left
             };
             PropsPanel.Children.Add(soundspeedBox);
 
-            TextBlock location = new TextBlock { FontSize = 14, Text = "Location", Width = 200, TextAlignment = TextAlignment.Center };
+            TextBlock location = new TextBlock { FontSize = 14, Text = "Location", Width = rightPanelWidth, TextAlignment = TextAlignment.Center };
             PropsPanel.Children.Add(location);
-            TextBlock beginning = new TextBlock { FontSize = 10, Text = "First point", Width = 200, TextAlignment = TextAlignment.Left };
+            TextBlock beginning = new TextBlock { FontSize = 10, Text = "First point", Width = rightPanelWidth, TextAlignment = TextAlignment.Left };
             PropsPanel.Children.Add(beginning);
-            StackPanel firstPanel = new StackPanel{Orientation = Orientation.Horizontal, Width = 200};
+            StackPanel firstPanel = new StackPanel{Orientation = Orientation.Horizontal, Width = rightPanelWidth};
             TextBlock xbegblock = new TextBlock{FontSize = 10, Text = "X: ",Margin = new Thickness(5,5,5,0)};
             firstPanel.Children.Add(xbegblock);
             TextBox xbegbox = new TextBox{ FontSize = 10, Text = wall.Start.X+"",Width=30,TextAlignment = TextAlignment.Left};
@@ -868,9 +954,9 @@ namespace Earlvik.ArtiStereo
             firstPanel.Children.Add(ybegbox);
             PropsPanel.Children.Add(firstPanel);
 
-            TextBlock ending = new TextBlock { FontSize = 10, Text = "Second point", Width = 200, TextAlignment = TextAlignment.Left };
+            TextBlock ending = new TextBlock { FontSize = 10, Text = "Second point", Width = rightPanelWidth, TextAlignment = TextAlignment.Left };
             PropsPanel.Children.Add(ending);
-            StackPanel secondPanel = new StackPanel { Orientation = Orientation.Horizontal, Width = 200 };
+            StackPanel secondPanel = new StackPanel { Orientation = Orientation.Horizontal, Width = rightPanelWidth };
             TextBlock xendblock = new TextBlock { FontSize = 10, Text = "X: ", Margin = new Thickness(5, 5, 5, 0) };
             secondPanel.Children.Add(xendblock);
             TextBox xendbox = new TextBox { FontSize = 10, Text = wall.End.X + "", Width = 30, TextAlignment = TextAlignment.Left };
@@ -880,8 +966,32 @@ namespace Earlvik.ArtiStereo
             TextBox yendbox = new TextBox{ FontSize = 10, Text = wall.End.Y + "", Width = 30, TextAlignment = TextAlignment.Left };
             secondPanel.Children.Add(yendbox);
             PropsPanel.Children.Add(secondPanel);
-           
 
+            TextBlock filtering = new TextBlock
+            {
+                FontSize = 14,
+                Text = "Level of filtering by frequency",
+                Width = rightPanelWidth,
+                TextAlignment = TextAlignment.Center
+            };
+            PropsPanel.Children.Add(filtering);
+            StackPanel freqPanel = new StackPanel{Orientation = Orientation.Horizontal,Width = rightPanelWidth};
+            TextBlock lowBlock = new TextBlock {FontSize = 10, Text = "LOW: ", Margin = new Thickness(5, 5, 5, 0)};
+            TextBox lowBox = new TextBox{FontSize = 10,Text = wall.WallMaterial.Low+"",Width = 40,TextAlignment = TextAlignment.Left};
+            freqPanel.Children.Add(lowBlock);
+            freqPanel.Children.Add(lowBox);
+
+            TextBlock medBlock = new TextBlock { FontSize = 10, Text = "MED: ", Margin = new Thickness(5, 5, 5, 0) };
+            TextBox medBox = new TextBox { FontSize = 10, Text = wall.WallMaterial.Medium + "", Width = 40, TextAlignment = TextAlignment.Left };
+            freqPanel.Children.Add(medBlock);
+            freqPanel.Children.Add(medBox);
+
+            TextBlock highBlock = new TextBlock { FontSize = 10, Text = "HIGH: ", Margin = new Thickness(5, 5, 5, 0) };
+            TextBox highBox = new TextBox { FontSize = 10, Text = wall.WallMaterial.High + "", Width = 40, TextAlignment = TextAlignment.Left };
+            freqPanel.Children.Add(highBlock);
+            freqPanel.Children.Add(highBox);
+
+            PropsPanel.Children.Add(freqPanel);
             Button deleteButton = new Button{Content = "Delete wall", HorizontalAlignment = HorizontalAlignment.Center,Margin = new Thickness(10,10,10,10)};
             PropsPanel.Children.Add(deleteButton);
             deleteButton.Click += delegate
@@ -915,25 +1025,10 @@ namespace Earlvik.ArtiStereo
             densityBox.TextChanged += delegate
             {
                 double newValue;
-                if (!double.TryParse(densityBox.Text, out newValue)) return;
-                for (int i = 0; i < mRoom.Walls.Count; i++)
-                {
-                    
-                    if (mRoom.Walls[i] == wall)
-                    {
-                        mRoom.Walls[i] = new Wall(wall.Start, wall.End,new Wall.Material {Density = newValue, SoundSpeed = wall.WallMaterial.SoundSpeed});
-                        mRoom.Walls[i].MatPreset = Wall.MaterialPreset.None;
-                        mSelectedRoomObject = mRoom.Walls[i];
-                        foreach (var child in PropsPanel.Children)
-                        {
-                            if (child is ComboBox)
-                            {
-                                (child as ComboBox).SelectedValue = Wall.MaterialPreset.None;
-                                return;
-                            }
-                        }
-                    }
-                }
+                if (!double.TryParse(densityBox.Text, out newValue) || newValue<0) return;
+                wall.WallMaterial.Density = newValue;
+                wall.MatPreset = Wall.MaterialPreset.None;
+                materialBox.SelectedItem = Wall.MaterialPreset.None;
             };
             densityBox.LostFocus += delegate
             {
@@ -944,31 +1039,65 @@ namespace Earlvik.ArtiStereo
             soundspeedBox.TextChanged += delegate
             {
                 double newValue;
-                if (!double.TryParse(soundspeedBox.Text, out newValue)) return;
-                for (int i = 0; i < mRoom.Walls.Count; i++)
-                {
-
-                    if (mRoom.Walls[i] == wall)
-                    {
-                        mRoom.Walls[i] = new Wall(wall.Start, wall.End, new Wall.Material { Density = wall.WallMaterial.Density, SoundSpeed = newValue });
-                        mRoom.Walls[i].MatPreset = Wall.MaterialPreset.None;
-                        mSelectedRoomObject = mRoom.Walls[i];
-                        foreach (var child in PropsPanel.Children)
-                        {
-                            if (child is ComboBox)
-                            {
-                                (child as ComboBox).SelectedValue = Wall.MaterialPreset.None;
-                                return;
-                            }
-                        }
-                    }
-                }
+                if (!double.TryParse(soundspeedBox.Text, out newValue) || newValue<0) return;
+                wall.WallMaterial.SoundSpeed = newValue;
+                wall.MatPreset = Wall.MaterialPreset.None;
+                materialBox.SelectedItem = Wall.MaterialPreset.None;
             };
             soundspeedBox.LostFocus += delegate
             {
                 var wall1 = mSelectedRoomObject as Wall;
                 if (wall1 != null)
-                    densityBox.Text = wall1.WallMaterial.SoundSpeed + "";
+                    soundspeedBox.Text = wall1.WallMaterial.SoundSpeed + "";
+            };
+
+            lowBox.TextChanged += delegate
+            {
+                double newValue;
+                if (!double.TryParse(lowBox.Text, out newValue) || newValue > 1 || newValue < 0) return;
+                wall.WallMaterial.Low = newValue;
+                wall.MatPreset = Wall.MaterialPreset.None;
+                materialBox.SelectedItem = Wall.MaterialPreset.None;
+            };
+            lowBox.LostFocus += delegate
+            {
+                var wall1 = mSelectedRoomObject as Wall;
+                if (wall1 != null)
+                    lowBox.Text = wall1.WallMaterial.Low + "";
+            };
+
+
+            medBox.TextChanged += delegate
+            {
+                double newValue;
+                if (!double.TryParse(medBox.Text, out newValue) || newValue > 1 || newValue < 0) return;
+                wall.WallMaterial.Medium = newValue;
+                wall.MatPreset = Wall.MaterialPreset.None;
+                materialBox.SelectedItem = Wall.MaterialPreset.None;
+
+            };
+            medBox.LostFocus += delegate
+            {
+                var wall1 = mSelectedRoomObject as Wall;
+                if (wall1 != null)
+                    medBox.Text = wall1.WallMaterial.Medium + "";
+            };
+
+
+            highBox.TextChanged += delegate
+            {
+                double newValue;
+                if (!double.TryParse(highBox.Text, out newValue) || newValue > 1 || newValue < 0) return;
+                wall.WallMaterial.High = newValue;
+                wall.MatPreset = Wall.MaterialPreset.None;
+                materialBox.SelectedItem = Wall.MaterialPreset.None;
+
+            };
+            highBox.LostFocus += delegate
+            {
+                var wall1 = mSelectedRoomObject as Wall;
+                if (wall1 != null)
+                    highBox.Text = wall1.WallMaterial.High + "";
             };
             xbegbox.TextChanged += delegate
             {
@@ -1024,85 +1153,126 @@ namespace Earlvik.ArtiStereo
             };
         }
 
-        private void RoomSaveMenuItem_Click(object sender, RoutedEventArgs e)
+        private void UpdateProps(IRoomObject obj)
         {
-            SaveFileDialog dialog = new SaveFileDialog() { AddExtension = true, CheckPathExists = true, Filter = "Serialized room files (*.asr)|*.asr" };
-            bool? result = dialog.ShowDialog(this);
-            if (result == true)
+            if (obj is Wall)
             {
-                BinaryFormatter formatter = new BinaryFormatter();
-                using (FileStream stream = new FileStream(dialog.FileName, FileMode.OpenOrCreate))
-                {
-                    try
-                    {
-                        formatter.Serialize(stream, mRoom);
-                    }
-                    catch (Exception exception)
-                    {
-                        MessageBox.Show(this, "Error occured during saving process: " + exception.Message);
-                    }
-                }
+                UpdateWallProps((Wall)obj);
+            }
+            else if (obj is ListenerPoint)
+            {
+                UpdateListenerProps((ListenerPoint) obj);
+            }
+            else if(obj is SoundPoint)
+            {
+                UpdateSourceProps((SoundPoint)obj);
             }
         }
 
-        private void RoomOpenMenuItem_Click(object sender, RoutedEventArgs e)
+        private void Window_SizeChanged(object sender, SizeChangedEventArgs e)
         {
-            OpenFileDialog dialog = new OpenFileDialog() { CheckFileExists = true, Filter = "Serialized room files (*.asr)|*.asr" };
-            if (dialog.ShowDialog(this) == true)
+            SoundProgressBar.Width = Width / 2-20;
+        }
+
+        private void RoomCanvas_MouseDown(object sender, MouseButtonEventArgs e)
+        {
+           
+            if (mSelectedRoomObject != null)
             {
-                BinaryFormatter formatter = new BinaryFormatter();
-                using (FileStream stream = new FileStream(dialog.FileName, FileMode.Open))
+               double xPrev = e.GetPosition(RoomCanvas).X;
+                double yPrev = e.GetPosition(RoomCanvas).Y;
+                if (mSelectedRoomObject is SoundPoint && Geometry.Distance(new Point(xPrev/pixelPerMeter,yPrev/pixelPerMeter), mSelectedRoomObject as SoundPoint )<0.15)
                 {
-                    try
+                    MouseEventHandler moveHandler = null;
+                    moveHandler = (moveSender, moveE) =>
                     {
-                        mRoom = (Room) formatter.Deserialize(stream);
+                       
+                        if (moveE.LeftButton == MouseButtonState.Released)
+                        {
+                          
+                            RoomCanvas.MouseMove -= moveHandler;
+                            moveHandler = null;
+                            DrawRoom();
+                            UpdateProps(mSelectedRoomObject);
+                            return;
+                        }
+                        double dx = (moveE.GetPosition(RoomCanvas).X - xPrev);
+                        double dy = (moveE.GetPosition(RoomCanvas).Y - yPrev);
+                        ((SoundPoint)mSelectedRoomObject).X += dx / pixelPerMeter;
+                        ((SoundPoint)mSelectedRoomObject).Y += dy / pixelPerMeter;
+                        xPrev = moveE.GetPosition(RoomCanvas).X;
+                        yPrev = moveE.GetPosition(RoomCanvas).Y;
+                        UpdateProps(mSelectedRoomObject);
                         DrawRoom();
-                    }
-                    catch (Exception exception)
+                    };
+
+
+                    RoomCanvas.MouseMove += moveHandler;
+
+                }
+                else if (mSelectedRoomObject is Wall)
+                {
+                    Point clickPoint = new Point(xPrev/pixelPerMeter, yPrev/pixelPerMeter);
+                    Point point =
+                        (Geometry.Distance(clickPoint,
+                            (mSelectedRoomObject as Wall).Start) <
+                         Geometry.Distance(clickPoint,
+                             (mSelectedRoomObject as Wall).End))
+                            ? (mSelectedRoomObject as Wall).Start
+                            : (mSelectedRoomObject as Wall).End;
+                    if (Geometry.Distance(clickPoint, point) > 0.15) return;
+                    MouseEventHandler moveHandler = null;
+                    moveHandler = (moveSender, moveE) =>
                     {
-                        MessageBox.Show(this, "Error occured during opening process: " + exception.Message);
-                    }
+                        Cursor = Cursors.None;
+                        if (moveE.LeftButton == MouseButtonState.Released)
+                        {
+                            Cursor = Cursors.Arrow;
+                            RoomCanvas.MouseMove -= moveHandler;
+                            moveHandler = null;
+                            DrawRoom();
+                            UpdateProps(mSelectedRoomObject);
+                            return;
+                        }
+                        double dx = (moveE.GetPosition(RoomCanvas).X - xPrev);
+                        double dy = (moveE.GetPosition(RoomCanvas).Y - yPrev);
+                        point.X += dx/pixelPerMeter;
+                        point.Y += dy/pixelPerMeter;
+                        xPrev = moveE.GetPosition(RoomCanvas).X;
+                        yPrev = moveE.GetPosition(RoomCanvas).Y;
+                        UpdateProps(mSelectedRoomObject);
+                        DrawRoom();
+                    };
+                    RoomCanvas.MouseMove += moveHandler;
                 }
             }
         }
 
-        private void RecordButton_Click(object sender, RoutedEventArgs e)
+        private void RoomCanvas_MouseMove(object sender, MouseEventArgs e)
         {
-            try
+            if (mSelectedRoomObject is Wall)
             {
-                ListenerPoint left = mRoom.Listeners[0];
-                ListenerPoint right = mRoom.Listeners[0];
-                for (int i = 0; i < mRoom.Listeners.Count; i++)
+                double xPrev = e.GetPosition(RoomCanvas).X;
+                double yPrev = e.GetPosition(RoomCanvas).Y;
+                Point clickPoint = new Point(xPrev/pixelPerMeter, yPrev/pixelPerMeter);
+                Point point =
+                    (Geometry.Distance(clickPoint,
+                        (mSelectedRoomObject as Wall).Start) <
+                     Geometry.Distance(clickPoint,
+                         (mSelectedRoomObject as Wall).End))
+                        ? (mSelectedRoomObject as Wall).Start
+                        : (mSelectedRoomObject as Wall).End;
+                if (Geometry.Distance(clickPoint, point) > 0.15)
                 {
-                    if (left.X > mRoom.Listeners[i].X) left = mRoom.Listeners[i];
-                    if (right.X < mRoom.Listeners[i].X) right = mRoom.Listeners[i];
+                    Cursor = Cursors.Arrow;
+                    return;
                 }
-                mRoom.CalculateSound();
-                ResultSound = new Sound(mRoom.Listeners.Count, mBaseSound.DiscretionRate, mBaseSound.BitsPerSample);
-                ResultSound.Add(left.Sound, 0, 0, 0);
-                ResultSound.Add(right.Sound, 0, 1, 0);
-                ResultSound.AdjustVolume();
-                SoundSaveMenuItem.IsEnabled = true;
+                Cursor = Cursors.Cross;
             }
-            catch (Exception exception)
+            else
             {
-                MessageBox.Show(this, "Error ocured during recording process: " + exception.Message);
+                Cursor = Cursors.Arrow;
             }
         }
-
-        private void SoundSaveMenuItem_Click(object sender, RoutedEventArgs e)
-        {
-            if (ResultSound != null)
-            {
-                SaveFileDialog dialog = new SaveFileDialog() { AddExtension = true, CheckPathExists = true, Filter = "Wave Sound Files (*.wav)|*.wav" };
-                if (dialog.ShowDialog(this) == true)
-                {
-                    ResultSound.CreateWav(dialog.FileName);
-                }
-            }
-        }
-
-       
-       
     }
 }

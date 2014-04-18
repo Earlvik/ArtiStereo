@@ -1,10 +1,7 @@
 ﻿
 using System;
-using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
-using System.Linq;
-using System.Text;
-using System.Windows.Documents;
 
 namespace Earlvik.ArtiStereo
 {
@@ -15,21 +12,28 @@ namespace Earlvik.ArtiStereo
     };
     public class Sound
     {
-        private int mChannels;
-        private int mDescretionRate;
-        private int mBitsPerSample;
-        private double[][] mSound;
-        private int mMaxValue = 32767;
-        private const int max16Bit = 32767;
+        public static int NUM = 0;
         public const int LEFT_CHANNEL = 0;
         public const int RIGHT_CHANNEL = 1;
-
-        public int Channels { get { return mChannels; } set { mChannels = value; } }
-        public int DiscretionRate { get { return mDescretionRate; } set { mDescretionRate = value; } }
-        public int BitsPerSample { get { return mBitsPerSample; } set { mBitsPerSample = value; } }
+        //Empirical constants for filtering
+        private const double highBandwidth = 0.3;
+        private const int highCenterFrequency = 18000;
+        private const double lowBandwidth = 1.0;
+        private const int lowCenterFrequency = 150;
+        private const double mediumBandwidth = 1.0;
+        private const int mediumCenterFrequency = 1000;
+        //Sound parameters
+        private int mBitsPerSample;
+        private int mChannels;
+        private int mDescretionRate;
+        private int mMaxValue = 32767;
+        private const int max16Bit = 32767;
+        private float[][] mSound;
 
         public Sound()
         {
+            //Console.WriteLine("Empty constructor");
+            NUM++;
             mChannels = 0;
             mDescretionRate = 0;
             mSound = null;
@@ -37,43 +41,46 @@ namespace Earlvik.ArtiStereo
 
         public Sound(int channels, int discretionRate, int bitsPerSample)
         {
+           // Console.WriteLine("Parameterized constructor");
+            NUM++;
             mChannels = channels;
             mDescretionRate = discretionRate;
             mBitsPerSample = bitsPerSample;
-            mSound = new double[channels][];
+            mSound = new float[channels][];
             for (int i = 0; i < channels; i++)
             {
-                mSound[i] = new double[0];
+                mSound[i] = new float[0];
             }
         }
 
         public Sound(Sound other)
         {
+          //  Console.WriteLine("Copy constructor");
+            NUM++;
             mChannels = other.mChannels;
             mDescretionRate = other.mDescretionRate;
             mBitsPerSample = other.mBitsPerSample;
-            mSound = new double[mChannels][];
+            mSound = new float[mChannels][];
             for (int i = 0; i < mChannels; i++)
             {
-                mSound[i]=new double[other.mSound[i].Length];
+                mSound[i]=new float[other.mSound[i].Length];
                 Array.Copy(other.mSound[i],mSound[i],other.mSound[i].Length);
             }
         }
 
-        public static Sound SimpleWave(int freq)
+        ~Sound()
         {
-            Sound result = new Sound(1, 44100, 16);
-            result.mSound = new double[1][];
-            result.mSound[0] = new double[result.mDescretionRate*10];
-            for (int i = 0; i < result.mSound[0].Length; i++)
-            {
-                double x = freq*i/(result.mDescretionRate*Math.PI);
-                result.mSound[0][i] = Math.Sin(x);
-               
-            }
-            return result;
+            NUM--;
+            // Console.WriteLine("DESTRUCTOR");
         }
-
+        public int BitsPerSample { get { return mBitsPerSample; } set { mBitsPerSample = value; } }
+        public int Channels { get { return mChannels; } set { mChannels = value; } }
+        public int DiscretionRate { get { return mDescretionRate; } set { mDescretionRate = value; } }
+        /// <summary>
+        /// Get wave sound data from file
+        /// </summary>
+        /// <param name="filename">Path to file</param>
+        /// <returns></returns>
         public static Sound GetSoundFromWav(string filename)
         {
             FileInfo file = new FileInfo(filename);
@@ -84,6 +91,7 @@ namespace Earlvik.ArtiStereo
             sound.mChannels = bytes[23]*256 + bytes[22];
             sound.mDescretionRate = bytes[27]*16777216 + bytes[26]*65536 + bytes[25]*256 + bytes[24];
             sound.mBitsPerSample = BytesToInt(bytes[34], bytes[35]);
+            if (sound.mBitsPerSample == 0) sound.mBitsPerSample = 16;
             int pos = 12;   
 
             while (!(bytes[pos] == 100 && bytes[pos + 1] == 97 && bytes[pos + 2] == 116 && bytes[pos + 3] == 97))
@@ -95,20 +103,22 @@ namespace Earlvik.ArtiStereo
             pos += 8;
             int samples = (bytes.Length - pos) / (sound.mBitsPerSample/8);
             if (sound.mChannels == 2) samples =(samples%2 == 0)?samples/2:samples/2+1;
-            sound.mSound = new double[sound.mChannels][];
+            sound.mSound = new float[sound.mChannels][];
             for (int i = 0; i < sound.mChannels; i++ )
             {
-                sound.mSound[i] = new double[samples];
+                sound.mSound[i] = new float[samples];
             }
             int j = 0;
             sound.mMaxValue = (int) (Math.Pow(256, sound.mBitsPerSample/8)/2);
-            while (pos < bytes.Length)
+            while (pos+1 < bytes.Length)
             {
+                
                 for (int k = 0; k < sound.mChannels; k++)
                 {
+                    if (pos + 1 >= bytes.Length) break;
                     if (sound.mBitsPerSample == 16)
                     {
-                        sound.mSound[k][j] = (double)BytesToInt(bytes[pos], bytes[pos + 1])/sound.mMaxValue;
+                        sound.mSound[k][j] = (float)BytesToInt(bytes[pos], bytes[pos + 1])/sound.mMaxValue;
                     }
                     else
                     {
@@ -122,7 +132,7 @@ namespace Earlvik.ArtiStereo
                         {
                             curSound -= 2*sound.mMaxValue + 1;
                         }
-                        sound.mSound[k][j] = (double)curSound/sound.mMaxValue;
+                        sound.mSound[k][j] = (float)curSound/sound.mMaxValue;
                     }
 
                     pos += sound.mChannels*(sound.mBitsPerSample/8);
@@ -133,7 +143,149 @@ namespace Earlvik.ArtiStereo
             return sound;
 
         }
+        /// <summary>
+        /// Create simple sine soundwave
+        /// </summary>
+        /// <param name="freq">Frequency of wave</param>
+        /// <returns></returns>
+        public static Sound SimpleWave(int freq)
+        {
+            Sound result = new Sound(1, 44100, 16);
+            result.mSound = new float[1][];
+            result.mSound[0] = new float[result.mDescretionRate*10];
+            for (int i = 0; i < result.mSound[0].Length; i++)
+            {
+                double x = freq*i/(result.mDescretionRate*Math.PI);
+                result.mSound[0][i] = (float) Math.Sin(x);
+               
+            }
+            return result;
+        }
+        /// <summary>
+        /// Adding one sound to another
+        /// </summary>
+        /// <param name="sound">Sound to add</param>
+        /// <param name="channelFrom">Channel of sound to use for sum</param>
+        /// <param name="channelTo">Target channel of sound</param>
+        /// <param name="offset">Time offset in milliseconds</param>
+        public void Add(Sound sound,int channelFrom,int channelTo, int offset)
+        {
 
+            if(channelTo>mChannels || channelTo<0) throw new ArgumentException("Channel number invalid");
+            if (channelFrom > sound.mChannels || channelFrom<0) throw new ArgumentException("Channel number invalid");
+            if(mDescretionRate != sound.mDescretionRate) throw new ArgumentException("different discretion rates");
+            
+            float[] temp = new float[mSound[channelTo].Length];
+            Sound fromSound;
+            if (this == sound && channelFrom == channelTo)
+            {
+                fromSound = new Sound();
+                fromSound.mSound = new float[channelFrom+1][];
+                fromSound.mSound[channelFrom] = new float[temp.Length];
+                Array.Copy(sound.mSound[channelFrom], fromSound.mSound[channelFrom], temp.Length);
+            }
+            else
+            {
+                fromSound = sound;
+            }
+            Array.Copy(mSound[channelTo],temp,temp.Length);
+            mSound[channelTo] = new float[Math.Max(temp.Length,offset+fromSound.mSound[channelFrom].Length)];
+            for (int i = 0; i < offset; i++)
+            {
+                if (i >= temp.Length)
+                {
+                    while (i < offset)
+                    {
+                        mSound[channelTo][i] = 0;
+                        i++;
+                    }
+                    break;
+                }
+                mSound[channelTo][i] = temp[i];
+            }
+            for (int i = offset; i < mSound[channelTo].Length; i++)
+            {
+                float fromOld = (i < temp.Length) ? temp[i] : 0;
+                float fromNew = (i-offset < fromSound.mSound[channelFrom].Length) ? fromSound.mSound[channelFrom][i-offset] : 0;
+                mSound[channelTo][i] = fromOld + fromNew;
+                //if (_sound[channelTo][i] > 1) _sound[channelTo][i] = 1;
+            }
+            }
+        /// <summary>
+        /// Adjusting sound to the given maximum
+        /// </summary>
+        /// <param name="level">Target sound level in percents</param>
+        public void AdjustVolume(double level)
+        {
+            double max = 0;
+            foreach (float[] channel in mSound)
+            {
+                Debug.Assert(channel != null, "channel != null");
+                foreach (float i in channel)
+                {
+                    if (Math.Abs(i) > max) max = i;
+                }
+            }
+            double volume = level/max;
+            for (int i = 0; i < mChannels; i++)
+            {
+                SetVolume(volume,i);
+            }
+        }
+        /// <summary>
+        /// Applying bell-shaped filter to sound
+        /// </summary>
+        /// <param name="centerF">Central frequency</param>
+        /// <param name="bandwidth">Width of filter in octaves</param>
+        /// <param name="percentreduction">Amplitude of filtering</param>
+        /// <param name="channel">Channel to edit</param>
+        public void BellFilter(int centerF, double bandwidth, double percentreduction, int channel)
+        {
+            double dbGain = PercentToDeciBell(percentreduction);
+            double a = Math.Pow(10, dbGain/40);
+            double w0 = 2*Math.PI*((double)centerF/DiscretionRate);
+            double cos = Math.Cos(w0);
+            double sin = Math.Sin(w0);
+            double alpha = sin*Math.Sinh(Math.Log(2, Math.E)*bandwidth*w0/sin);
+            double b0 = 1 + alpha*a,
+                b1 = -2*cos,
+                b2 = 1 - alpha*a,
+                a0 = 1 + alpha/a,
+                a1 = -2*cos,
+                a2 = 1 - alpha/a;
+            b0 /= a0;
+            b1 /= a0;
+            b2 /= a0;
+            a1 /= a0;
+            a2 /= a0;
+            
+            double sourceMem1=0, sourceMem2=0, resultMem1=0, resultMem2=0;
+            for (int i = 0; i < mSound[channel].Length; i++)
+            {
+                double result = b0*mSound[channel][i] + b1*sourceMem1 + b2*sourceMem2 - a1*resultMem1 - a2*resultMem2;
+                sourceMem2 = sourceMem1;
+                sourceMem1 = mSound[channel][i];
+                resultMem2 = resultMem1;
+                resultMem1 = result;
+                mSound[channel][i] = (float) result;
+            }
+        }
+        /// <summary>
+        /// Combination of sound copying and volume adjusting
+        /// </summary>
+        /// <param name="percent">Target volume level in percents</param>
+        /// <param name="channel">Channel to use in setVolume</param>
+        /// <returns></returns>
+        public Sound CopyWithVolume( double percent, int channel)
+        {
+            Sound result = new Sound(this);
+            result.SetVolume(percent,channel);
+            return result;
+        }
+        /// <summary>
+        /// Creating an output wavesound file
+        /// </summary>
+        /// <param name="filename">Path to the file</param>
         public void CreateWav(string filename)
         {
             //FileStream file = new FileStream(filename, FileMode.OpenOrCreate);
@@ -217,8 +369,8 @@ namespace Earlvik.ArtiStereo
                         if (bytesPerSample == 2)
                         {
                             int sample = (int) Math.Round(mSound[j][pos]*mMaxValue);
-                           // if (sample > mMaxValue) sample = mMaxValue;
-                           // if (sample < -mMaxValue) sample = -mMaxValue;
+                            // if (sample > mMaxValue) sample = mMaxValue;
+                            // if (sample < -mMaxValue) sample = -mMaxValue;
                             IntToBytes(sample, out data[i], out data[i + 1]);
                         }
                         else
@@ -244,97 +396,53 @@ namespace Earlvik.ArtiStereo
             }
             File.WriteAllBytes(filename,data);
         }
-
-        public void Add(Sound sound,int channelFrom,int channelTo, int offset)
+        /// <summary>
+        /// Time units conversion dependent on discretion rate
+        /// </summary>
+        /// <param name="milliseconds">Time in milliseconds</param>
+        /// <returns></returns>
+        public int MillesecondsToSamples(int milliseconds)
         {
-
-            if(channelTo>mChannels || channelTo<0) throw new ArgumentException("Channel number invalid");
-            if (channelFrom > sound.mChannels || channelFrom<0) throw new ArgumentException("Channel number invalid");
-            if(mDescretionRate != sound.mDescretionRate) throw new ArgumentException("different discretion rates");
-            
-            double[] temp = new double[mSound[channelTo].Length];
-            Sound fromSound;
-            if (this == sound && channelFrom == channelTo)
-            {
-                fromSound = new Sound();
-                fromSound.mSound = new double[channelFrom+1][];
-                fromSound.mSound[channelFrom] = new double[temp.Length];
-                Array.Copy(sound.mSound[channelFrom], fromSound.mSound[channelFrom], temp.Length);
-            }
-            else
-            {
-                fromSound = sound;
-            }
-            Array.Copy(mSound[channelTo],temp,temp.Length);
-            mSound[channelTo] = new double[Math.Max(temp.Length,offset+fromSound.mSound[channelFrom].Length)];
-            for (int i = 0; i < offset; i++)
-            {
-                if (i >= temp.Length)
-                {
-                    while (i < offset)
-                    {
-                        mSound[channelTo][i] = 0;
-                        i++;
-                    }
-                    break;
-                }
-                mSound[channelTo][i] = temp[i];
-            }
-            for (int i = offset; i < mSound[channelTo].Length; i++)
-            {
-                double fromOld = (i < temp.Length) ? temp[i] : 0;
-                double fromNew = (i-offset < fromSound.mSound[channelFrom].Length) ? fromSound.mSound[channelFrom][i-offset] : 0;
-                mSound[channelTo][i] = fromOld + fromNew;
-                //if (_sound[channelTo][i] > 1) _sound[channelTo][i] = 1;
-            }
+            return milliseconds*mDescretionRate/1000;
         }
-
+        /// <summary>
+        /// Setting volume on given level
+        /// </summary>
+        /// <param name="percent">Target volume level in percents</param>
+        /// <param name="channel">Channel to set volume on</param>
         public void SetVolume(double percent, int channel)
         {
             if(channel >mChannels || channel < 0) throw new ArgumentException();
             for (int i = 0; i < mSound[channel].Length; i++)
             {
-                mSound[channel][i] = (mSound[channel][i]*percent);
+                mSound[channel][i] = (float) (mSound[channel][i]*percent);
             }
         }
-
+        /// <summary>
+        /// Adjust volume dependent of frequency. Applying bell-filter, high and low shelf filters
+        /// </summary>
+        /// <param name="channel">Channel to edit</param>
+        /// <param name="lowPercent">Sound decrease level for low frequencies</param>
+        /// <param name="medPercent">Sound decrease level for medium frequencies</param>
+        /// <param name="highPercent">Sound decrease level for high frequencies</param>
         public void SetVolume(int channel, double lowPercent, double medPercent, double highPercent)
         {
-                      
+            //Percents in parameters are given as a difference. So they should be substracted from 1
+            double lowLevel = 1 - lowPercent;
+            double medLevel = 1 - medPercent;
+            double highLevel = 1 - highPercent;
+            BellFilter(mediumCenterFrequency,mediumBandwidth,medLevel,channel);
+            ShelfFilter(lowCenterFrequency,lowBandwidth,lowLevel,channel,Filter.Low);
+            ShelfFilter(highCenterFrequency,highBandwidth,highLevel,channel,Filter.High);
         }
-
-        public void BellFilter(int centerF, double bandwidth, double percentreduction, int channel)
-        {
-            double dbGain = PercentToDeciBell(percentreduction);
-            double a = Math.Pow(10, dbGain/40);
-            double w0 = 2*Math.PI*((double)centerF/DiscretionRate);
-            double cos = Math.Cos(w0);
-            double sin = Math.Sin(w0);
-            double alpha = sin*Math.Sinh(Math.Log(2, Math.E)*bandwidth*w0/sin);
-            double b0 = 1 + alpha*a,
-                b1 = -2*cos,
-                b2 = 1 - alpha*a,
-                a0 = 1 + alpha/a,
-                a1 = -2*cos,
-                a2 = 1 - alpha/a;
-            b0 /= a0;
-            b1 /= a0;
-            b2 /= a0;
-            a1 /= a0;
-            a2 /= a0;
-            
-            double sourceMem1=0, sourceMem2=0, resultMem1=0, resultMem2=0;
-            for (int i = 0; i < mSound[channel].Length; i++)
-            {
-                double result = b0*mSound[channel][i] + b1*sourceMem1 + b2*sourceMem2 - a1*resultMem1 - a2*resultMem2;
-                sourceMem2 = sourceMem1;
-                sourceMem1 = mSound[channel][i];
-                resultMem2 = resultMem1;
-                resultMem1 = result;
-                mSound[channel][i] = result;
-            }
-        }
-
+        /// <summary>
+        /// Applying shelf filter to adjust high or low frequencies
+        /// </summary>
+        /// <param name="centerF">Central frequency of filter</param>
+        /// <param name="bandwidth">Filter width in octaves</param>
+        /// <param name="percentreduction">Target volume level</param>
+        /// <param name="channel">Channel to edit</param>
+        /// <param name="type">Filter.Low or Filter.High</param>
         public void ShelfFilter(int centerF, double bandwidth, double percentreduction, int channel,Filter type)
         {
             double dbGain = PercentToDeciBell(percentreduction);
@@ -370,27 +478,15 @@ namespace Earlvik.ArtiStereo
                 sourceMem1 = mSound[channel][i];
                 resultMem2 = resultMem1;
                 resultMem1 = result;
-                mSound[channel][i] = result;
+                mSound[channel][i] = (float) result;
             }
         }
-
-        private double PercentToDeciBell(double percent)
-        {
-            return 20*Math.Log10(percent);
-        }
-
-        private double DeciBellToPercent(double decibell)
-        {
-            return Math.Pow(10, decibell/20);
-        }
-
-        public Sound CopyWithVolume( double percent, int channel)
-        {
-            Sound result = new Sound(this);
-            result.SetVolume(percent,channel);
-            return result;
-        }
-
+        /// <summary>
+        /// Conversion of two bytes in littleEndian to one int value
+        /// </summary>
+        /// <param name="firstByte"></param>
+        /// <param name="secondByte"></param>
+        /// <returns></returns>
         static int BytesToInt(byte firstByte, byte secondByte)
         {
             int value =  (secondByte << 8) | firstByte;
@@ -400,7 +496,12 @@ namespace Earlvik.ArtiStereo
             }
            return value;
         }
-
+        /// <summary>
+        /// Converting int value to two bytes in littleEndian
+        /// </summary>
+        /// <param name="value"></param>
+        /// <param name="firstByte"></param>
+        /// <param name="secondByte"></param>
         static void IntToBytes(int value, out byte firstByte, out byte secondByte)
         {
             if (value > max16Bit) value = max16Bit-50;
@@ -412,28 +513,23 @@ namespace Earlvik.ArtiStereo
             firstByte = (byte)(value%256.0);
             secondByte = (byte) (value/256.0);
         }
-
-        public int MillesecondsToSamples(int milliseconds)
+        /// <summary>
+        /// Conversion of decibell to percentage
+        /// </summary>
+        /// <param name="decibell"></param>
+        /// <returns></returns>
+        private double DeciBellToPercent(double decibell)
         {
-            return milliseconds*mDescretionRate/1000;
+            return Math.Pow(10, decibell/20);
         }
-
-        public void AdjustVolume()
+        /// <summary>
+        /// Conversion of percentage to decibell value
+        /// </summary>
+        /// <param name="percent"></param>
+        /// <returns></returns>
+        private double PercentToDeciBell(double percent)
         {
-            double max = 0;
-            foreach (double[] channel in mSound)
-            {
-                foreach (double i in channel)
-                {
-                    if (Math.Abs(i) > max) max = i;
-                }
-            }
-            double volume = (mMaxValue*0.75)/(max);
-            for (int i = 0; i < mChannels; i++)
-            {
-                SetVolume(volume,i);
-            }
+            return 20*Math.Log10(percent);
         }
-        
     }
 }

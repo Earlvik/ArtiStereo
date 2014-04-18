@@ -2,10 +2,11 @@
 using System.Collections.Generic;
 using System.Linq;
 
-
 namespace Earlvik.ArtiStereo
 {
-    //Marker
+    /// <summary>
+    /// Marker interface for room constructor parts
+    /// </summary>
     interface IRoomObject { }
     /// <summary>
     /// Class that stores and provides information about premises where to model sound waves
@@ -15,11 +16,10 @@ namespace Earlvik.ArtiStereo
     {
         
         //lists of room elements
-        private List<Wall> _walls;
-        private List<SoundPoint> _sources;
         private List<ListenerPoint> _listeners;
+        private List<SoundPoint> _sources;
+        private List<Wall> _walls;
         //value for calculating reflection from ceiling
-        public double CeilingHeight { set; get; }
 
         public Room()
         {
@@ -27,27 +27,12 @@ namespace Earlvik.ArtiStereo
             _sources = new List<SoundPoint>();
             _listeners = new List<ListenerPoint>();
         }
-        /// <summary>
-        /// Adds new wall to the room
-        /// </summary>
-        /// <param name="wall"></param>
-        public Wall AddWall(Wall wall)
-        {
-            if(!WallNotExists(wall)) throw new Exception("Trying to add already existent wall");
-            _walls.Add(wall);
-            return wall;
-        }
-        /// <summary>
-        /// Adds new sound source to the room
-        /// </summary>
-        /// <param name="source"></param>
-        public SoundPoint AddSource(SoundPoint source)
-        {
-            if(!SourceNotExists(source)) throw new Exception("Trying to add already existent source");
-            if(!PointNotOnWall(source)) throw new Exception("Trying to add source on a wall");
-            _sources.Add(source);
-            return source;
-        }
+
+        public double CeilingHeight { set; get; }
+        public List<ListenerPoint> Listeners { get { return _listeners; } }
+        public List<SoundPoint> Sources { get { return _sources; } }
+        public List<Wall> Walls { get { return _walls; } }
+
         /// <summary>
         /// Adds new listener to the room
         /// </summary>
@@ -59,64 +44,104 @@ namespace Earlvik.ArtiStereo
             _listeners.Add(listener);
             return listener;
         }
+
         /// <summary>
-        /// deletes certain wall
-        /// </summary>
-        /// <param name="wall"></param>
-        public void RemoveWall(Wall wall)
-        {
-            _walls.Remove(wall);
-        }
-        /// <summary>
-        /// deletes certain sound source
+        /// Adds new sound source to the room
         /// </summary>
         /// <param name="source"></param>
-        public void RemoveSource(SoundPoint source)
+        public SoundPoint AddSource(SoundPoint source)
         {
-            _sources.Remove(source);
+            if(!SourceNotExists(source)) throw new Exception("Trying to add already existent source");
+            if(!PointNotOnWall(source)) throw new Exception("Trying to add source on a wall");
+            _sources.Add(source);
+            return source;
+        }
+
+        /// <summary>
+        /// Adds new wall to the room
+        /// </summary>
+        /// <param name="wall"></param>
+        public Wall AddWall(Wall wall)
+        {
+            if(!WallNotExists(wall)) throw new Exception("Trying to add already existent wall");
+            _walls.Add(wall);
+            return wall;
         }
         /// <summary>
-        /// deletes certain listener
+        /// Main method. Calculates reflections, sound reduction and reverberation, records result sound in listeners
         /// </summary>
-        /// <param name="listener"></param>
-        public void RemoveListener(ListenerPoint listener)
+        public void CalculateSound()
         {
-            _listeners.Remove(listener);
-        }
-        //Public accessors to the lists
-        public List<Wall> Walls { get { return _walls; } }
-        public List<SoundPoint> Sources { get { return _sources; } }
-        public List<ListenerPoint> Listeners { get { return _listeners; } }
-        //Methods checking correctness of elements being added
-        bool WallNotExists(Wall testwall)
-        {
-            if(testwall == null) throw new ArgumentNullException();
-            return _walls.All(wall => testwall != wall);
+            
+            double airSSpeed = Wall.Material.Air.SoundSpeed;
+            foreach (SoundPoint source in Sources)
+            {
+                //double distance = Listeners.Min(x => Geometry.Distance(source, x));
+
+                //double timeOffset = distance/airSSpeed*1000;
+                double directSoundLevel = SoundReduction(Listeners.Min(x=>Geometry.Distance(source,x)));
+                foreach (ListenerPoint listener in Listeners)
+                {
+                    listener.Sound = new Sound(1, source.Sound.DiscretionRate, source.Sound.BitsPerSample);
+                    
+                    //Direct sound
+                    if (CheckPath(new Line(source, listener)))
+                    {
+                        double distance = Geometry.Distance(listener, source);
+                        double time = distance/airSSpeed*1000;
+                        double percentReduction = SoundReduction(distance);// / directSoundLevel;
+                        if (listener.Directional)
+                        {
+                            percentReduction *= listener.GetReduction(new Line(source, listener));
+                        }
+                       
+                        listener.Sound.Add(source.Sound.CopyWithVolume(percentReduction,0), 0, 0,
+                            source.Sound.MillesecondsToSamples((int) time));
+                    }
+                    //Primary reflections
+                    Sound snd;
+                    foreach (Wall wall in Walls)
+                    {
+                        Point refPoint = Geometry.ReflectionPoint(wall, source, listener);
+                        if (refPoint == null) continue;
+                        if (
+                            !(CheckPath(new Line(source, refPoint), wall) &&
+                              CheckPath(new Line(refPoint, listener), wall))) continue;
+                        snd = new Sound(source.Sound);
+                        //snd.SetVolume(SoundReduction(Geometry.Distance(source, refPoint)),0);
+                        Double angle = Geometry.Angle(new Line(source, refPoint), new Line(refPoint, listener),false) / 2;
+                        Double refCoefft = wall.ReflectionCoefft(angle);
+                        //snd.SetVolume(refCoefft,0);
+                        Double reductionCoefft = (SoundReduction(Geometry.Distance(source, refPoint) +
+                                                                 Geometry.Distance(refPoint, listener))) * refCoefft;
+                        //reductionCoefft /= directSoundLevel; //Adjusting volume to prevent distortion
+                        if (listener.Directional)
+                        {
+                            reductionCoefft *= listener.GetReduction(new Line(refPoint, listener));
+                        }
+                        snd.SetVolume(reductionCoefft, 0);
+                        //Frequency-based reduction
+                        snd.SetVolume(0,wall.WallMaterial.Low,wall.WallMaterial.Medium,wall.WallMaterial.High);
+                        Double time = (Geometry.Distance(source, refPoint) + Geometry.Distance(refPoint, listener)) /
+                                      airSSpeed * 1000;
+                        listener.Sound.Add(snd, 0, 0, (int)time);
+                        snd = null;
+                    }
+                }
+                
+
+               
+
+            }
         }
 
-        bool SourceNotExists(Point testsource)
-        {
-            if(testsource == null) throw new ArgumentNullException();
-           return _sources.All(source => testsource != source);
-        }
-
-        bool ListenerNotExists(Point testlistener)
-        {
-            if(testlistener == null) throw new ArgumentNullException();
-            return _listeners.All(listener => testlistener != listener);
-        }
-
-        bool PointNotOnWall(Point point)
-        {
-            if(point == null) throw new ArgumentNullException();
-            return _walls.All(wall => !(Geometry.OnLine(wall, point) && Geometry.OnSegment(wall, point)));
-        }
         /// <summary>
         /// Checking validness of the room, germeticness etc.
         /// </summary>
         /// <returns></returns>
         public bool IsValid()
         {
+            if (_sources.Count == 0 || _listeners.Count == 0) return false;
             List<Point> surface = OuterSurface();
             for (int i = 0; i < surface.Count - 1; i++)
             {
@@ -125,11 +150,55 @@ namespace Earlvik.ArtiStereo
             }
             return true;
         }
+
+        /// <summary>
+        /// deletes certain listener
+        /// </summary>
+        /// <param name="listener"></param>
+        public void RemoveListener(ListenerPoint listener)
+        {
+            _listeners.Remove(listener);
+        }
+
+        /// <summary>
+        /// deletes certain sound source
+        /// </summary>
+        /// <param name="source"></param>
+        public void RemoveSource(SoundPoint source)
+        {
+            _sources.Remove(source);
+        }
+
+        /// <summary>
+        /// deletes certain wall
+        /// </summary>
+        /// <param name="wall"></param>
+        public void RemoveWall(Wall wall)
+        {
+            _walls.Remove(wall);
+        }
+
+        bool CheckPath(Line line)
+        {
+            return Walls.All(wall => Geometry.SegmentIntersection(wall, line, false) == null);
+        }
+
+        bool CheckPath(Line line, Wall exclude)
+        {
+            return Walls.All(wall => Geometry.SegmentIntersection(wall, line, false) == null || wall == exclude); 
+        }
+
+        bool ListenerNotExists(Point testlistener)
+        {
+            if(testlistener == null) throw new ArgumentNullException();
+            return _listeners.All(listener => testlistener != listener);
+        }
+
         /// <summary>
         /// Calculates outer surface points of the room using Jarvis algorythm
         /// </summary>
         /// <returns>List of points in the outer surface polygon</returns>
-         List<Point> OuterSurface()
+        List<Point> OuterSurface()
         {
             List<Point> points = new List<Point>();
             List<Point> surface = new List<Point>();
@@ -157,7 +226,7 @@ namespace Earlvik.ArtiStereo
                 {
                     if (points[i] == current) continue;
                     double vecprod = Geometry.VectorMultiplication(new Line(current, pretendent),
-                                                                   new Line(current, points[i]));
+                        new Line(current, points[i]));
                     if (Geometry.EqualDouble(vecprod, 0))
                     {
                         if (Geometry.Distance(pretendent, current) > Geometry.Distance(points[i], current))
@@ -178,78 +247,12 @@ namespace Earlvik.ArtiStereo
             }
             //surface.Add(lefttop);
             return surface;
-        } 
-
-        bool CheckPath(Line line)
-        {
-            return Walls.All(wall => Geometry.SegmentIntersection(wall, line, false) == null);
         }
 
-        bool CheckPath(Line line, Wall exclude)
+        bool PointNotOnWall(Point point)
         {
-            return Walls.All(wall => Geometry.SegmentIntersection(wall, line, false) == null || wall == exclude); 
-        }
-        public void CalculateSound()
-        {
-            
-            double airSSpeed = Wall.Material.Air.SoundSpeed;
-            foreach (SoundPoint source in Sources)
-            {
-                //double distance = Listeners.Min(x => Geometry.Distance(source, x));
-
-                //double timeOffset = distance/airSSpeed*1000;
-                double directSoundLevel = SoundReduction(Listeners.Min(x=>Geometry.Distance(source,x)));
-                foreach (ListenerPoint listener in Listeners)
-                {
-                    listener.Sound = new Sound(1, source.Sound.DiscretionRate, source.Sound.BitsPerSample);
-                    
-                    //Direct sound
-                    if (CheckPath(new Line(source, listener)))
-                    {
-                        double distance = Geometry.Distance(listener, source);
-                        double time = distance/airSSpeed*1000;
-                        double percentReduction = SoundReduction(distance);// / directSoundLevel;
-                        if (listener.Directional)
-                        {
-                            percentReduction *= listener.GetReduction(new Line(source, listener));
-                        }
-                       
-                        listener.Sound.Add(source.Sound.CopyWithVolume(percentReduction,0), 0, 0,
-                                           source.Sound.MillesecondsToSamples((int) time));
-                    }
-                    //Primary reflections
-                    foreach (Wall wall in Walls)
-                    {
-                        Point refPoint = Geometry.ReflectionPoint(wall, source, listener);
-                        if (refPoint == null) continue;
-                        if (
-                            !(CheckPath(new Line(source, refPoint), wall) &&
-                              CheckPath(new Line(refPoint, listener), wall))) continue;
-                        Sound snd = new Sound(source.Sound);
-                        //snd.SetVolume(SoundReduction(Geometry.Distance(source, refPoint)),0);
-                        Double angle = Geometry.Angle(new Line(source, refPoint), new Line(refPoint, listener),false) / 2;
-                        Double refCoefft = wall.ReflectionCoefft(angle);
-                        //snd.SetVolume(refCoefft,0);
-                        Double reductionCoefft = (SoundReduction(Geometry.Distance(source, refPoint) +
-                                                                 Geometry.Distance(refPoint, listener))) * refCoefft;
-                        //reductionCoefft /= directSoundLevel; //Adjusting volume to prevent distortion
-                        if (listener.Directional)
-                        {
-                            reductionCoefft *= listener.GetReduction(new Line(refPoint, listener));
-                        }
-                        snd.SetVolume(reductionCoefft, 0);
-
-                        Double time = (Geometry.Distance(source, refPoint) + Geometry.Distance(refPoint, listener)) /
-                                      airSSpeed * 1000;
-                        listener.Sound.Add(snd, 0, 0, (int)time);
-
-                    }
-                }
-                
-
-               
-
-            }
+            if(point == null) throw new ArgumentNullException();
+            return _walls.All(wall => !(Geometry.OnLine(wall, point) && Geometry.OnSegment(wall, point)));
         }
 
         double SoundReduction(double distance)
@@ -258,52 +261,28 @@ namespace Earlvik.ArtiStereo
             //return Math.Pow(10, decibellReduction / 10.0);
             return 1/(distance * distance);
         }
-    }
 
+        bool SourceNotExists(Point testsource)
+        {
+            if(testsource == null) throw new ArgumentNullException();
+            return _sources.All(source => testsource != source);
+        }
+
+        bool WallNotExists(Wall testwall)
+        {
+            if(testwall == null) throw new ArgumentNullException();
+            return _walls.All(wall => testwall != wall);
+        }
+    }
+    /// <summary>
+    /// Simple geometric point
+    /// </summary>
     [Serializable]
     public class Point
     {
-        protected bool Equals(Point other)
-        {
-            return _x.Equals(other._x) && _y.Equals(other._y);
-        }
+        private double mX ;
+        private double mY;
 
-        public override bool Equals(object obj)
-        {
-            if (ReferenceEquals(null, obj)) return false;
-            if (ReferenceEquals(this, obj)) return true;
-            if (obj.GetType() != this.GetType()) return false;
-            return Equals((Point) obj);
-        }
-
-        public override int GetHashCode()
-        {
-            unchecked
-            {
-                return (_x.GetHashCode()*397) ^ _y.GetHashCode();
-            }
-        }
-
-        private double _x ;
-        private double _y;
-        public double X
-        {
-            set
-            {
-                //if(value < 0) throw new ArgumentException(" Point coordinate X should be non-negative, but was "+value);
-                _x = value;
-            }
-            get { return _x; }
-        }
-        public double Y
-        {
-            set
-            {
-                //if (value < 0) throw new ArgumentException(" Point coordinate Y should be non-negative, but was " + value);
-                _y = value;
-            }
-            get { return _y; }
-        }
         public Point(double x, double y)
         {
             X = x;
@@ -312,8 +291,8 @@ namespace Earlvik.ArtiStereo
 
         public Point(System.Windows.Point point)
         {
-            _x = point.X;
-            _y = point.Y;
+            mX = point.X;
+            mY = point.Y;
         }
 
         public Point()
@@ -321,11 +300,26 @@ namespace Earlvik.ArtiStereo
             X = 0;
             Y = 0;
         }
-        public override string ToString()
+
+        public double X
         {
-            return "( " + X + " ; " + Y + " )";
+            set
+            {
+                //if(value < 0) throw new ArgumentException(" Point coordinate X should be non-negative, but was "+value);
+                mX = value;
+            }
+            get { return mX; }
         }
-        
+        public double Y
+        {
+            set
+            {
+                //if (value < 0) throw new ArgumentException(" Point coordinate Y should be non-negative, but was " + value);
+                mY = value;
+            }
+            get { return mY; }
+        }
+
         public static bool operator ==(Point a, Point b)
         {
             if (((Object)a)==null && ((Object)b) == null) return true;
@@ -337,34 +331,39 @@ namespace Earlvik.ArtiStereo
         {
             return !(a == b);
         }
-    }
-
-    [Serializable]
-   public class Line
-    {
-        protected bool Equals(Line other)
-        {
-            return Equals(Start, other.Start) && Equals(End, other.End);
-        }
 
         public override bool Equals(object obj)
         {
             if (ReferenceEquals(null, obj)) return false;
             if (ReferenceEquals(this, obj)) return true;
-            if (obj.GetType() != this.GetType()) return false;
-            return Equals((Line) obj);
+            if (obj.GetType() != GetType()) return false;
+            return Equals((Point) obj);
         }
 
         public override int GetHashCode()
         {
             unchecked
             {
-                return ((Start != null ? Start.GetHashCode() : 0)*397) ^ (End != null ? End.GetHashCode() : 0);
+                return (mX.GetHashCode()*397) ^ mY.GetHashCode();
             }
         }
 
-        public Point Start { set; get; }
-        public Point End { set; get; }
+        public override string ToString()
+        {
+            return "( " + X + " ; " + Y + " )";
+        }
+
+        protected bool Equals(Point other)
+        {
+            return mX.Equals(other.mX) && mY.Equals(other.mY);
+        }
+    }
+    /// <summary>
+    /// Simple geometric line
+    /// </summary>
+    [Serializable]
+   public class Line
+    {
         public Line(Point start, Point end)
         {
             Start = start;
@@ -377,11 +376,8 @@ namespace Earlvik.ArtiStereo
             End = new Point(xend, yend);
         }
 
-        public Point GetIntersection(Line second, bool wholeLine)
-        {
-            if (second is Line) return Geometry.SegmentIntersection(this,second as Line, wholeLine);
-            throw new NotImplementedException("Here will be intersection for a segment and an arc or maybe not");
-        }
+        public Point End { set; get; }
+        public Point Start { set; get; }
 
         static public bool operator ==(Line a, Line b)
         {
@@ -394,11 +390,47 @@ namespace Earlvik.ArtiStereo
         {
             return !(a == b);
         }
-    }
 
+        public override bool Equals(object obj)
+        {
+            if (ReferenceEquals(null, obj)) return false;
+            if (ReferenceEquals(this, obj)) return true;
+            if (obj.GetType() != GetType()) return false;
+            return Equals((Line) obj);
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                return ((Start != null ? Start.GetHashCode() : 0)*397) ^ (End != null ? End.GetHashCode() : 0);
+            }
+        }
+        /// <summary>
+        /// Returns point of intersection with segment or whole line
+        /// </summary>
+        /// <param name="second">Line to intersect with</param>
+        /// <param name="wholeLine">Does out-of-segment intersections count</param>
+        /// <returns>Intersection point OR null if none exists</returns>
+        public Point GetIntersection(Line second, bool wholeLine)
+        {
+            return Geometry.SegmentIntersection(this,second, wholeLine);
+            
+        }
+
+        protected bool Equals(Line other)
+        {
+            return Equals(Start, other.Start) && Equals(End, other.End);
+        }
+    }
+    /// <summary>
+    /// Point with associated sound 
+    /// </summary>
     [Serializable]
     public class SoundPoint:Point,IRoomObject
     {
+        [NonSerialized] private Sound mSound;
+
         public SoundPoint(Point p) : base(p.X, p.Y)
         {
            
@@ -408,40 +440,34 @@ namespace Earlvik.ArtiStereo
             
         }
 
-        [NonSerialized] private Sound mSound;
-
         public Sound Sound
         {
             set { mSound = value; }
             get { return mSound; }
         }
     }
+    /// <summary>
+    /// Point with associated sound and microphone directional decrease function
+    /// </summary>
     [Serializable]
     public class ListenerPoint:SoundPoint
     {
+        public delegate double DirectionalDecrease(Line incomingRay, Line micDirection);
+        /// <summary>
+        /// "Heart-shaped" function that provides strond sound preception from the front of microphone, less from sides and very low from rear
+        /// </summary>
+        public static DirectionalDecrease Cardioid = delegate(Line incomingRay, Line micDirection)
+        {
+            double incomingAngle = Geometry.Angle(micDirection, incomingRay,true);
+            double r = 0.5*(1 + Math.Cos(incomingAngle));
+            double decibellReduction = 25*(r-1);
+            double percentReduction = Math.Pow(10, decibellReduction/20.0);
+            return percentReduction;
+        };
+       
         private readonly DirectionalDecrease mDecreaseFunction;
         private readonly Line mDirection;
-        public bool Directional { private set; get; }
 
-        public double DirectionAngle
-        {
-            get { return Geometry.Angle(new Line(0, 0, 1, 0), mDirection, true); }
-        }
-
-        public double DirectionX
-        {
-            set { if(mDirection!=null) mDirection.End.X = value; }
-            get { return mDirection==null?0:mDirection.End.X; }
-        }
-
-        public double DirectionY
-        {
-            set { if(mDirection!=null) mDirection.End.Y = value; }
-            get
-            {
-                return mDirection == null ? 0:mDirection.End.Y;
-            }
-        }
         public ListenerPoint(Point p, Line direction, DirectionalDecrease decreaseFunction) : base(p)
         {
             mDirection = direction;
@@ -467,36 +493,56 @@ namespace Earlvik.ArtiStereo
         {
             Directional = false;
         }
-
+        /// <summary>
+        /// Angle between mic direction and positive direction of X-axis
+        /// </summary>
+        public double DirectionAngle
+        {
+            get { return Geometry.Angle(new Line(0, 0, 1, 0), mDirection, true); }
+        }
+        /// <summary>
+        /// X-Coordinate of direction vector
+        /// </summary>
+        public double DirectionX
+        {
+            set { if(mDirection!=null) mDirection.End.X = value; }
+            get { return mDirection==null?0:mDirection.End.X; }
+        }
+        /// <summary>
+        /// Y-Coordinate of direction vector
+        /// </summary>
+        public double DirectionY
+        {
+            set { if(mDirection!=null) mDirection.End.Y = value; }
+            get
+            {
+                return mDirection == null ? 0:mDirection.End.Y;
+            }
+        }
+        /// <summary>
+        /// Determines if mic is omnidirectional or not
+        /// </summary>
+        public bool Directional { private set; get; }
+        /// <summary>
+        /// Calculates sound reduction based on incoming sound direction
+        /// </summary>
+        /// <param name="incomingRay">Incoming sound direction</param>
+        /// <returns>Percentage of result sound</returns>
         public double GetReduction(Line incomingRay)
         {
             if (mDecreaseFunction == null) return 1;
             return mDecreaseFunction(incomingRay, mDirection);
         }
-
-        public delegate double DirectionalDecrease(Line incomingRay, Line micDirection);
-
-        public static DirectionalDecrease Cardioid = delegate(Line incomingRay, Line micDirection)
-            {
-                //double offsetAngle = Geometry.Angle(new Line(0, 0, 1, 0), micDirection,true) ;
-               // if (Geometry.EqualDouble(offsetAngle, 0)) offsetAngle = Math.PI;
-               // else if (Geometry.EqualDouble(offsetAngle, Math.PI)) offsetAngle = 0;
-
-                double incomingAngle = Geometry.Angle(micDirection, incomingRay,true);
-                double r = 0.5*(1 + Math.Cos(incomingAngle));
-                double decibellReduction = 25*(r-1);
-                double percentReduction = Math.Pow(10, decibellReduction/20.0);
-                return percentReduction;
-            };
-        
     }
 
     [Serializable]
     public class Wall:Line,IRoomObject
     {
-
-        public Material WallMaterial { set; get; }
         public MaterialPreset MatPreset;
+        /// <summary>
+        /// List of predefined material options
+        /// </summary>
+        public enum MaterialPreset { OakWood, Air, Glass, Granite, Brick, Rubber, None}
 
         public Wall(Point start, Point end, Material material) : base(start, end)
         {
@@ -550,8 +596,13 @@ namespace Earlvik.ArtiStereo
             }
         }
         public Wall(double xstart, double ystart, double xend, double yend, MaterialPreset preset) : this(new Point(xstart, ystart), new Point(xend, yend), preset) { }
-
-       public double ReflectionCoefft(double angle)
+        public Material WallMaterial { set; get; }
+        /// <summary>
+        /// Level of sound reduction after rflection from this wall
+        /// </summary>
+        /// <param name="angle">Angle of sound ray falling</param>
+        /// <returns></returns>
+        public double ReflectionCoefft(double angle)
        {
            //double densityPart = (WallMaterial.Density/Material.Air.Density)*Math.Cos(angle);
            //double speedPart =
@@ -569,13 +620,21 @@ namespace Earlvik.ArtiStereo
            return result;
        }
         [Serializable]
-        public struct Material
+        public class Material
         {
-            public double Density;
-            public double SoundSpeed;
-            public double Low;
-            public double Medium;
-            public double High;
+            public static readonly Material Air = new Material(1.20, 340.29);
+            public static readonly Material Brick = new Material(1800,3480,0.01,0.02,0.02);
+            public static readonly Material Glass = new Material(2500, 5000,0.035,0.037,0.2);
+            public static readonly Material Granite = new Material(2800, 3950,0.01,0.02,0.03);
+            public static readonly Material OakWood = new Material(720,4000,0.09,0.08,0.1);
+            public static readonly Material OakWoodCarpeted = new Material(720,4000,0.01,0.1,0.4);
+            public static readonly Material Rubber = new Material(1050, 54);
+            
+            public double Density { set; get; }
+            public double SoundSpeed { set; get; }
+            public double Low { set; get; }
+            public double Medium { set; get; }
+            public double High { set; get; }
             Material(double dens, double sspeed, double low = 0, double medium = 0, double high = 0)
             {
                 Density = dens;
@@ -584,18 +643,9 @@ namespace Earlvik.ArtiStereo
                 Medium = medium;
                 High = high;
             }
-            public static readonly Material OakWood = new Material(720,4000,0.09,0.08,0.1); 
-            public static readonly Material Air = new Material(1.20, 340.29);
-            public static readonly Material Glass = new Material(2500, 5000,0.035,0.037,0.2);
-            public static readonly Material Granite = new Material(2800, 3950,0.01,0.02,0.03);
-            public static readonly Material Brick = new Material(1800,3480,0.01,0.02,0.02);
-            public static readonly Material Rubber = new Material(1050, 54);
-            public static readonly Material OakWoodCarpeted = new Material(720,4000,0.01,0.1,0.4);
-                
-        }
-        public enum MaterialPreset { OakWood, Air, Glass, Granite, Brick, Rubber, None}
 
-        
+            
+        }
     }
 
     /// <summary>
@@ -606,104 +656,56 @@ namespace Earlvik.ArtiStereo
             /// <summary>
             /// Constant used to compare real numbers
             /// </summary>
-            private const double Eps = 0.0000001;
-            /// <summary>
-            /// Calculates a value that shows the direction of cross products of vectors
-            /// </summary>
-            /// <param name="first">first line</param>
-            /// <param name="second">second line</param>
-            /// <returns>negative value if the second line goes clockwise from the first, or vice versa, or 0 if vectors are collinear</returns>
-            public static double VectorMultiplication(Line first, Line second)
+            private const double eps = 0.0000001;
+
+        /// <summary>
+        /// Calculates an angle value between two lines
+        /// </summary>
+        /// <param name="a"></param>
+        /// <param name="b"></param>
+        /// <param name="asVector">Should method consider lines as directional vectors or as infinite lines</param>
+        /// <returns>angle in radians</returns>
+        public static double Angle(Line a, Line b, bool asVector)
+        {
+            //line equations parameters
+            double A1 = a.Start.Y - a.End.Y;
+            double B1 = a.End.X - a.Start.X;
+            //double C1 = a.Start.X*a.End.Y - a.Start.Y*a.End.X;
+
+            double A2 = b.Start.Y - b.End.Y;
+            double B2 = b.End.X - b.Start.X;
+            // double C2 = b.Start.X * b.End.Y - b.Start.Y * b.End.X;
+
+            Point checkPoint = new Point(b.Start.X -B2,b.Start.Y+A2);
+            //parallel and peprendicular lines
+            if ((Math.Abs(B1) < eps && Math.Abs(B2) < eps) || (Math.Abs(A1) < eps && Math.Abs(A2) < eps) ||
+                Math.Abs((A1/A2) - (B1/B2)) < eps)
             {
-                double x1 = first.End.X - first.Start.X;
-                double y1 = first.End.Y - first.Start.Y;
-                double x2 = second.End.X - second.Start.X;
-                double y2 = second.End.Y - second.Start.Y;
-
-                return x1 * y2 - x2 * y1;
+                if (!asVector || A1*A2 <0 || B1*B2 <0 ) return 0;
+                return Math.PI;
             }
-            /// <summary>
-            /// Calculates the direction of cross product of given line vector and one of its ends to the given point vector
-            /// </summary>
-            /// <param name="line"></param>
-            /// <param name="point"></param>
-            /// <returns>negative value if the second line goes clockwise from the first, or vice versa, or 0 if vectors are collinear</returns>
-            static double Direction(Line line, Point point)
+                    
+               
+            if (Math.Abs(A1*A2 + B1*B2) < eps)
             {
-                Line toPoint = new Line(line.Start, point);
-                return VectorMultiplication(line, toPoint);
+                if (!asVector || Direction(a, checkPoint) < 0) return Math.PI/2;
+                return 3*Math.PI/2;
             }
-            /// <summary>
-            /// Decides if the given point is located on the given line segment
-            /// </summary>
-            /// <param name="line"></param>
-            /// <param name="point"></param>
-            /// <returns></returns>
-            static public bool OnSegment(Line line, Point point)
+
+            //other lines
+            double denom = Math.Sqrt((A1 * A1 + B1 * B1) * (A2 * A2 + B2 * B2));
+            double nom = A1*A2 + B1*B2;
+            if (!asVector) nom = Math.Abs(nom);
+            else nom *= -1;
+            double result  = Math.Acos(nom / denom);
+            if (asVector && Direction(a, checkPoint) > 0)
             {
-                double xs = line.Start.X;
-                double xe = line.End.X;
-                double ys = line.Start.Y;
-                double ye = line.End.Y;
-                double xp = point.X;
-                double yp = point.Y;
-
-                return (Math.Min(xs, xe) < xp || Geometry.EqualDouble(Math.Min(xs, xe), xp)) && (xp < Math.Max(xs, xe) || Geometry.EqualDouble(Math.Max(xs, xe), xp)) &&
-                       (Math.Min(ys, ye) < yp || Geometry.EqualDouble(Math.Min(ys, ye), yp)) && (yp < Math.Max(ys, ye) || Geometry.EqualDouble(Math.Max(ys, ye), yp));
+                result = 2*Math.PI - result;
             }
-            /// <summary>
-            /// Calculates a point where one line intersects the other
-            /// </summary>
-            /// <param name="first"></param>
-            /// <param name="second"></param>
-            /// <param name="wholeLine">false if only intersection of segments is needed, true otherwise</param>
-            /// <returns>null if there is no intersection or the intersection point otherwise</returns>
-            static public Point SegmentIntersection(Line first,Line second, bool wholeLine)
-            {
-                //Vector multiplication between the line and the endpoint of the other line
-                double d1 = Direction(second, first.Start);
-                double d2 = Direction(second, first.End);
-                double d3 = Direction(first, second.Start);
-                double d4 = Direction(first, second.End);
-                //Checking if any of the endpoints is on the other line
-                if (Math.Abs(d1) < Eps && (OnSegment(second, first.Start) || wholeLine))
-                {
-                    return first.Start;
-                }
-                if (Math.Abs(d2) < Eps && (OnSegment(second, first.End) || wholeLine))
-                {
-                    return first.End;
-                }
-                if (Math.Abs(d3) < Eps && (OnSegment(first, second.Start) || wholeLine))
-                {
-                    return second.Start;
-                }
-                if (Math.Abs(d4) < Eps && (OnSegment(first, second.End) || wholeLine))
-                {
-                    return second.End;
-                }
-                //Checking for intersections apart from the endpoints
+            return result;
+        }
 
-                double x1 = first.Start.X,
-                       x2 = first.End.X,
-                       x3 = second.Start.X,
-                       x4 = second.End.X,
-                       y1 = first.Start.Y,
-                       y2 = first.End.Y,
-                       y3 = second.Start.Y,
-                       y4 = second.End.Y;
-                if (Math.Abs((y4 - y3) * (x2 - x1) - (x4 - x3) * (y2 - y1)) < Eps) return null;
-                double coefftA = ((x4 - x3) * (y1 - y3) - (y4 - y3) * (x1 - x3)) / ((y4 - y3) * (x2 - x1) - (x4 - x3) * (y2 - y1));
-               // double coefftB = ((x2 - x1) * (y1 - y3) - (y2 - y1) * (x1 - x3)) / ((y4 - y3) * (x2 - x1) - (x4 - x3) * (y2 - y1));
-                if (wholeLine || (d2 * d1 < 0 && d3 * d4 < 0))
-                {
-                    return new Point(x1 + coefftA * (x2 - x1), y1 + coefftA * (y2 - y1));
-                }
-
-                return null;
-
-            }
-            /// <summary>
+        /// <summary>
             /// Calculates the distance between two points
             /// </summary>
             /// <param name="a"></param>
@@ -727,157 +729,13 @@ namespace Earlvik.ArtiStereo
                 double C = line.Start.X * line.End.Y - line.Start.Y * line.End.X;
 
                 double denom = Math.Sqrt(A * A + B * B);
-                if (Math.Abs(denom) < Eps) throw new Exception("the line equation is illegal");
+                if (Math.Abs(denom) < eps) throw new Exception("the line equation is illegal");
                 return Math.Abs(A * point.X + B * point.Y + C) / denom;
             }
-            /// <summary>
-            /// Calculates an angle value between two lines
-            /// </summary>
-            /// <param name="a"></param>
-            /// <param name="b"></param>
-            /// <param name="asVector">Should method consider lines as directional vectors or as infinite lines</param>
-            /// <returns>angle in radians</returns>
-            public static double Angle(Line a, Line b, bool asVector)
+
+        static public bool EqualDouble(double a, double b)
             {
-                //line equations parameters
-                double A1 = a.Start.Y - a.End.Y;
-                double B1 = a.End.X - a.Start.X;
-                //double C1 = a.Start.X*a.End.Y - a.Start.Y*a.End.X;
-
-                double A2 = b.Start.Y - b.End.Y;
-                double B2 = b.End.X - b.Start.X;
-                // double C2 = b.Start.X * b.End.Y - b.Start.Y * b.End.X;
-
-                Point checkPoint = new Point(b.Start.X -B2,b.Start.Y+A2);
-                //parallel and peprendicular lines
-               if ((Math.Abs(B1) < Eps && Math.Abs(B2) < Eps) || (Math.Abs(A1) < Eps && Math.Abs(A2) < Eps) ||
-                        Math.Abs((A1/A2) - (B1/B2)) < Eps)
-                    {
-                        if (!asVector || A1*A2 <0 || B1*B2 <0 ) return 0;
-                        return Math.PI;
-                    }
-                    
-               
-                if (Math.Abs(A1*A2 + B1*B2) < Eps)
-                {
-                    if (!asVector || Direction(a, checkPoint) < 0) return Math.PI/2;
-                    return 3*Math.PI/2;
-                }
-
-                //other lines
-                double denom = Math.Sqrt((A1 * A1 + B1 * B1) * (A2 * A2 + B2 * B2));
-                double nom = A1*A2 + B1*B2;
-                if (!asVector) nom = Math.Abs(nom);
-                else nom *= -1;
-                double result  = Math.Acos(nom / denom);
-                if (asVector && Direction(a, checkPoint) > 0)
-                {
-                    result = 2*Math.PI - result;
-                }
-                return result;
-            }
-            /// <summary>
-            /// Calculates the point of primary reflection
-            /// </summary>
-            /// <param name="wall">linear wall that reflects sound</param>
-            /// <param name="source">location of the sound source</param>
-            /// <param name="listener">location of the listener</param>
-            /// <returns>null if there is no primary reflection, reflection point otherwise</returns>
-            public static Point ReflectionPoint(Line wall, Point source, Point listener)
-            {
-                Line direct = new Line(source, listener);
-                double angle = Angle(wall, direct,false);
-                if (Math.Abs(angle) < Eps) //the wall is parallel with the direct line
-                {
-                    return ParallelProjection(wall, new Point((source.X + listener.X) / 2, (source.Y + listener.Y) / 2),false);
-                }
-
-                Point intersection = wall.GetIntersection(direct, true);
-                if (OnSegment(direct, intersection)) return null;//the wall is between the source and the listener
-
-                if (Math.Abs(angle - Math.PI / 2) < Eps) return intersection;
-
-                Point nearPoint, farPoint;
-                double shortDist = Distance(listener, wall), longDist = Distance(source, wall);
-                if (longDist > shortDist)
-                {
-                    nearPoint = listener;
-                    farPoint = source;
-                }
-                else
-                {
-                    nearPoint = source;
-                    farPoint = listener;
-                    double temp = shortDist;
-                    shortDist = longDist;
-                    longDist = temp;
-                }
-
-                Line farParallel;
-                if (Math.Abs(wall.Start.X - wall.End.X) < Eps)
-                {
-                    farParallel = new Line(farPoint, new Point(farPoint.X, 0));
-                }
-                else
-                {
-                    double wallAngleCoefft = (wall.Start.Y - wall.End.Y) / (wall.Start.X - wall.End.X);
-                    Point secondPoint = new Point(0, farPoint.Y + wallAngleCoefft * (-farPoint.X));
-                    farParallel = new Line(farPoint, secondPoint);
-
-                }
-
-                Point endOfFarProjection = ParallelProjection(farParallel, nearPoint,true);
-
-                double similarityCoefft = (shortDist) / (longDist - shortDist);
-
-                // Point on far parallel line which will be projected
-                Point farResultProjection = new Point((farPoint.X + similarityCoefft * endOfFarProjection.X) / (1 + similarityCoefft), (farPoint.Y + similarityCoefft * endOfFarProjection.Y) / (1 + similarityCoefft));
-
-                Point result = ParallelProjection(wall, farResultProjection,false);
-
-                return result;
-
-            }
-            /// <summary>
-            /// Calculates the parallel projection of a point to a line  
-            /// </summary>
-            /// <param name="toLine"></param>
-            /// <param name="point"></param>
-            /// <returns></returns>
-            public static Point ParallelProjection(Line toLine, Point point, bool wholeLine)
-            {
-                //double A1 = fromLine.Start.Y - fromLine.End.Y;
-                //double B1 = fromLine.End.X - fromLine.Start.X;
-                //double C1 = fromLine.Start.X*fromLine.End.Y - fromLine.Start.Y*fromLine.End.X;
-
-                double A2 = toLine.Start.Y - toLine.End.Y;
-                double B2 = toLine.End.X - toLine.Start.X;
-                double C2 = toLine.Start.X * toLine.End.Y - toLine.Start.Y * toLine.End.X;
-
-                if (EqualDouble(B2, 0))
-                {
-                    Point projection =  new Point(-C2 / A2, point.Y);
-                    return (OnSegment(toLine, projection) || wholeLine) ? projection : null;
-                }
-                if (EqualDouble(A2, 0))
-                {
-                    Point projection =  new Point(point.X, toLine.Start.Y);
-                    return (OnSegment(toLine, projection) || wholeLine) ? projection : null;
-                }
-
-                double angleCoefft = A2 / (-B2);
-                //double offset = C1/(-B1);
-               
-                Point start = new Point(0, point.Y + (1 / angleCoefft) * point.X);
-                Point end = new Point(1, point.Y + (1 / angleCoefft) * (point.X - 1));
-                Line normal = new Line(start, end);
-                Point intersection = toLine.GetIntersection(normal, true);
-                return (OnSegment(toLine, intersection) || wholeLine) ? intersection : null;
-            }
-
-            static public bool EqualDouble(double a, double b)
-            {
-                return Math.Abs(a - b) < Eps;
+                return Math.Abs(a - b) < eps;
             }
 
             static public bool OnLine(Line line, Point point)
@@ -885,5 +743,204 @@ namespace Earlvik.ArtiStereo
                 return EqualDouble((point.X - line.Start.X)/(line.End.X - line.Start.X), (point.Y - line.Start.Y)/(line.End.Y - line.Start.Y));
             }
 
+        /// <summary>
+        /// Decides if the given point is located on the given line segment
+        /// </summary>
+        /// <param name="line"></param>
+        /// <param name="point"></param>
+        /// <returns></returns>
+        static public bool OnSegment(Line line, Point point)
+        {
+            double xs = line.Start.X;
+            double xe = line.End.X;
+            double ys = line.Start.Y;
+            double ye = line.End.Y;
+            double xp = point.X;
+            double yp = point.Y;
+
+            return (Math.Min(xs, xe) < xp || EqualDouble(Math.Min(xs, xe), xp)) && (xp < Math.Max(xs, xe) || EqualDouble(Math.Max(xs, xe), xp)) &&
+                   (Math.Min(ys, ye) < yp || EqualDouble(Math.Min(ys, ye), yp)) && (yp < Math.Max(ys, ye) || EqualDouble(Math.Max(ys, ye), yp));
+        }
+
+        /// <summary>
+        /// Calculates the parallel projection of a point to a line  
+        /// </summary>
+        /// <param name="toLine">Line to project to</param>
+        /// <param name="point">Point to project</param>
+        /// <param name="wholeLine">Does out-of-segment points count</param>
+        /// <returns></returns>
+        public static Point ParallelProjection(Line toLine, Point point, bool wholeLine)
+        {
+            //double A1 = fromLine.Start.Y - fromLine.End.Y;
+            //double B1 = fromLine.End.X - fromLine.Start.X;
+            //double C1 = fromLine.Start.X*fromLine.End.Y - fromLine.Start.Y*fromLine.End.X;
+
+            double A2 = toLine.Start.Y - toLine.End.Y;
+            double B2 = toLine.End.X - toLine.Start.X;
+            double C2 = toLine.Start.X * toLine.End.Y - toLine.Start.Y * toLine.End.X;
+
+            if (EqualDouble(B2, 0))
+            {
+                Point projection =  new Point(-C2 / A2, point.Y);
+                return (OnSegment(toLine, projection) || wholeLine) ? projection : null;
+            }
+            if (EqualDouble(A2, 0))
+            {
+                Point projection =  new Point(point.X, toLine.Start.Y);
+                return (OnSegment(toLine, projection) || wholeLine) ? projection : null;
+            }
+
+            double angleCoefft = A2 / (-B2);
+            //double offset = C1/(-B1);
+               
+            Point start = new Point(0, point.Y + (1 / angleCoefft) * point.X);
+            Point end = new Point(1, point.Y + (1 / angleCoefft) * (point.X - 1));
+            Line normal = new Line(start, end);
+            Point intersection = toLine.GetIntersection(normal, true);
+            return (OnSegment(toLine, intersection) || wholeLine) ? intersection : null;
+        }
+
+        /// <summary>
+        /// Calculates the point of primary reflection
+        /// </summary>
+        /// <param name="wall">linear wall that reflects sound</param>
+        /// <param name="source">location of the sound source</param>
+        /// <param name="listener">location of the listener</param>
+        /// <returns>null if there is no primary reflection, reflection point otherwise</returns>
+        public static Point ReflectionPoint(Line wall, Point source, Point listener)
+        {
+            Line direct = new Line(source, listener);
+            double angle = Angle(wall, direct,false);
+            if (Math.Abs(angle) < eps) //the wall is parallel with the direct line
+            {
+                return ParallelProjection(wall, new Point((source.X + listener.X) / 2, (source.Y + listener.Y) / 2),false);
+            }
+
+            Point intersection = wall.GetIntersection(direct, true);
+            if (OnSegment(direct, intersection)) return null;//the wall is between the source and the listener
+
+            if (Math.Abs(angle - Math.PI / 2) < eps) return intersection;
+
+            Point nearPoint, farPoint;
+            double shortDist = Distance(listener, wall), longDist = Distance(source, wall);
+            if (longDist > shortDist)
+            {
+                nearPoint = listener;
+                farPoint = source;
+            }
+            else
+            {
+                nearPoint = source;
+                farPoint = listener;
+                double temp = shortDist;
+                shortDist = longDist;
+                longDist = temp;
+            }
+
+            Line farParallel;
+            if (Math.Abs(wall.Start.X - wall.End.X) < eps)
+            {
+                farParallel = new Line(farPoint, new Point(farPoint.X, 0));
+            }
+            else
+            {
+                double wallAngleCoefft = (wall.Start.Y - wall.End.Y) / (wall.Start.X - wall.End.X);
+                Point secondPoint = new Point(0, farPoint.Y + wallAngleCoefft * (-farPoint.X));
+                farParallel = new Line(farPoint, secondPoint);
+
+            }
+
+            Point endOfFarProjection = ParallelProjection(farParallel, nearPoint,true);
+
+            double similarityCoefft = (shortDist) / (longDist - shortDist);
+
+            // Point on far parallel line which will be projected
+            Point farResultProjection = new Point((farPoint.X + similarityCoefft * endOfFarProjection.X) / (1 + similarityCoefft), (farPoint.Y + similarityCoefft * endOfFarProjection.Y) / (1 + similarityCoefft));
+
+            Point result = ParallelProjection(wall, farResultProjection,false);
+
+            return result;
+
+        }
+
+        /// <summary>
+        /// Calculates a point where one line intersects the other
+        /// </summary>
+        /// <param name="first"></param>
+        /// <param name="second"></param>
+        /// <param name="wholeLine">false if only intersection of segments is needed, true otherwise</param>
+        /// <returns>null if there is no intersection or the intersection point otherwise</returns>
+        static public Point SegmentIntersection(Line first,Line second, bool wholeLine)
+        {
+            //Vector multiplication between the line and the endpoint of the other line
+            double d1 = Direction(second, first.Start);
+            double d2 = Direction(second, first.End);
+            double d3 = Direction(first, second.Start);
+            double d4 = Direction(first, second.End);
+            //Checking if any of the endpoints is on the other line
+            if (Math.Abs(d1) < eps && (OnSegment(second, first.Start) || wholeLine))
+            {
+                return first.Start;
+            }
+            if (Math.Abs(d2) < eps && (OnSegment(second, first.End) || wholeLine))
+            {
+                return first.End;
+            }
+            if (Math.Abs(d3) < eps && (OnSegment(first, second.Start) || wholeLine))
+            {
+                return second.Start;
+            }
+            if (Math.Abs(d4) < eps && (OnSegment(first, second.End) || wholeLine))
+            {
+                return second.End;
+            }
+            //Checking for intersections apart from the endpoints
+
+            double x1 = first.Start.X,
+                x2 = first.End.X,
+                x3 = second.Start.X,
+                x4 = second.End.X,
+                y1 = first.Start.Y,
+                y2 = first.End.Y,
+                y3 = second.Start.Y,
+                y4 = second.End.Y;
+            if (Math.Abs((y4 - y3) * (x2 - x1) - (x4 - x3) * (y2 - y1)) < eps) return null;
+            double coefftA = ((x4 - x3) * (y1 - y3) - (y4 - y3) * (x1 - x3)) / ((y4 - y3) * (x2 - x1) - (x4 - x3) * (y2 - y1));
+            // double coefftB = ((x2 - x1) * (y1 - y3) - (y2 - y1) * (x1 - x3)) / ((y4 - y3) * (x2 - x1) - (x4 - x3) * (y2 - y1));
+            if (wholeLine || (d2 * d1 < 0 && d3 * d4 < 0))
+            {
+                return new Point(x1 + coefftA * (x2 - x1), y1 + coefftA * (y2 - y1));
+            }
+
+            return null;
+
+        }
+
+        /// <summary>
+        /// Calculates a value that shows the direction of cross products of vectors
+        /// </summary>
+        /// <param name="first">first line</param>
+        /// <param name="second">second line</param>
+        /// <returns>negative value if the second line goes clockwise from the first, or vice versa, or 0 if vectors are collinear</returns>
+        public static double VectorMultiplication(Line first, Line second)
+        {
+            double x1 = first.End.X - first.Start.X;
+            double y1 = first.End.Y - first.Start.Y;
+            double x2 = second.End.X - second.Start.X;
+            double y2 = second.End.Y - second.Start.Y;
+
+            return x1 * y2 - x2 * y1;
+        }
+        /// <summary>
+        /// Calculates the direction of cross product of given line vector and one of its ends to the given point vector
+        /// </summary>
+        /// <param name="line"></param>
+        /// <param name="point"></param>
+        /// <returns>negative value if the second line goes clockwise from the first, or vice versa, or 0 if vectors are collinear</returns>
+        static double Direction(Line line, Point point)
+        {
+            Line toPoint = new Line(line.Start, point);
+            return VectorMultiplication(line, toPoint);
+        }
         }
 }

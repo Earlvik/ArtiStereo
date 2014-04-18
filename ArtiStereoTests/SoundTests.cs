@@ -51,38 +51,26 @@ namespace ArtiStereoTests
         [TestMethod]
         public void PrimaryReflectionsComplexTest()
         {
-            AS.Wall.Material mat = AS.Wall.Material.Brick;
+            AS.Wall.Material mat = AS.Wall.Material.OakWoodCarpeted;
             AS.Room room = new AS.Room();
             room.AddWall(new AS.Wall(0, 0, 17, 0, mat));
             room.AddWall(new AS.Wall(0, 0, 2, 10, mat));
             room.AddWall(new AS.Wall(17, 0, 14, 10, mat));
             room.AddWall(new AS.Wall(2, 10, 14, 10, mat));
             AS.SoundPoint source = new AS.SoundPoint(12, 5);
-            source.Sound = AS.Sound.GetSoundFromWav(@"D:\Whistling.wav");
+            source.Sound = AS.Sound.GetSoundFromWav(@"D:\fromWar.wav");
             room.AddSource(source);
             room.AddListener(new AS.ListenerPoint(3, 7,new AS.Line(0,0,-1,0),AS.ListenerPoint.Cardioid));
             room.AddListener(new AS.ListenerPoint(7, 7, new AS.Line(0,0,1,0),AS.ListenerPoint.Cardioid ));
-
-            //room.AddWall(new AS.Wall(0,0,9,0,mat));
-            //room.AddWall(new AS.Wall(0,0,0,10,mat));
-            //room.AddWall(new AS.Wall(0,10,4,14,mat));
-            //room.AddWall(new AS.Wall(4,14,9,10,mat));
-            //room.AddWall(new AS.Wall(9,10,9,0,mat));
-            //AS.SoundPoint source = new AS.SoundPoint(7,11);
-            //source.Sound = AS.Sound.GetSoundFromWav(@"D:\sound.wav");
-            //source.Sound.SetVolume(0.7,0);
-            //room.AddSource(source);
-            //room.AddListener(new AS.SoundPoint(2,3));
-            //room.AddListener(new AS.SoundPoint(2.3,3));
 
             room.CalculateSound();
             AS.Sound sound = new AS.Sound(2,source.Sound.DiscretionRate,source.Sound.BitsPerSample);
             sound.Add(room.Listeners[1].Sound,0,0,0);
             sound.Add(room.Listeners[0].Sound,0,1,0);
-            sound.AdjustVolume();
-            sound.SetVolume(0.6,0);
-            sound.SetVolume(0.6,1);
-            sound.CreateWav(@"D:\result1.wav");
+            //sound.AdjustVolume(0.75);
+            //sound.SetVolume(0.6,0);
+            //sound.SetVolume(0.6,1);
+            sound.CreateWav(@"D:\fromR.wav");
         }
     
         [TestMethod]
@@ -106,7 +94,7 @@ namespace ArtiStereoTests
             AS.Sound sound = new AS.Sound(2, source.Sound.DiscretionRate, source.Sound.BitsPerSample);
             sound.Add(room.Listeners[1].Sound, 0, 0, 0);
             sound.Add(room.Listeners[0].Sound, 0, 1, 0);
-            sound.AdjustVolume();
+            sound.AdjustVolume(0.75);
             //sound.SetVolume(0.6, 0);
             //sound.SetVolume(0.6, 1);
             sound.CreateWav(@"D:\sweepR.wav");
@@ -116,16 +104,32 @@ namespace ArtiStereoTests
         public void BellFilterTest()
         {
             AS.Sound sound = AS.Sound.GetSoundFromWav(@"D:\sweep.wav");
-            sound.BellFilter(18000,0.5,0.05,0);
-            sound.CreateWav(@"D:\bell2.wav");
+            sound.BellFilter(1000,1,0.9,0);
+            sound.CreateWav(@"D:\bell1.wav");
         }
 
         [TestMethod]
-        public void ShelfFilterTest()
+        public void LowShelfFilterTest()
         {
             AS.Sound sound = AS.Sound.GetSoundFromWav(@"D:\sweep.wav");
-            sound.ShelfFilter(18000, .5, .2, 0,AS.Filter.High);
-            sound.CreateWav(@"D:\shelf2.wav");
+            sound.ShelfFilter(150, 1, .5, 0,AS.Filter.Low);
+            sound.CreateWav(@"D:\shelfLOW.wav");
+        }
+
+        [TestMethod]
+        public void HighShelfFileterTest()
+        {
+            AS.Sound sound = AS.Sound.GetSoundFromWav(@"D:\sweep.wav");
+            sound.ShelfFilter(18000,0.3,.9,0,AS.Filter.High);
+            sound.CreateWav(@"D:\shelfHIGH.wav");
+        }
+
+        [TestMethod]
+        public void ComplexFilterTest()
+        {
+            AS.Sound sound = AS.Sound.GetSoundFromWav(@"D:\Whistling.wav");
+            sound.SetVolume(0,0.1,0.5,0.9);
+            sound.CreateWav(@"D:\complex.wav");
         }
     }
 }
