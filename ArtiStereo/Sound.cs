@@ -12,7 +12,7 @@ namespace Earlvik.ArtiStereo
     };
     public class Sound
     {
-        public static int NUM = 0;
+       // public static int NUM = 0;
         public const int LEFT_CHANNEL = 0;
         public const int RIGHT_CHANNEL = 1;
         //Empirical constants for filtering
@@ -32,8 +32,7 @@ namespace Earlvik.ArtiStereo
 
         public Sound()
         {
-            //Console.WriteLine("Empty constructor");
-            NUM++;
+         
             mChannels = 0;
             mDescretionRate = 0;
             mSound = null;
@@ -41,8 +40,7 @@ namespace Earlvik.ArtiStereo
 
         public Sound(int channels, int discretionRate, int bitsPerSample)
         {
-           // Console.WriteLine("Parameterized constructor");
-            NUM++;
+          
             mChannels = channels;
             mDescretionRate = discretionRate;
             mBitsPerSample = bitsPerSample;
@@ -55,8 +53,7 @@ namespace Earlvik.ArtiStereo
 
         public Sound(Sound other)
         {
-          //  Console.WriteLine("Copy constructor");
-            NUM++;
+          
             mChannels = other.mChannels;
             mDescretionRate = other.mDescretionRate;
             mBitsPerSample = other.mBitsPerSample;
@@ -68,11 +65,7 @@ namespace Earlvik.ArtiStereo
             }
         }
 
-        ~Sound()
-        {
-            NUM--;
-            // Console.WriteLine("DESTRUCTOR");
-        }
+       
         public int BitsPerSample { get { return mBitsPerSample; } set { mBitsPerSample = value; } }
         public int Channels { get { return mChannels; } set { mChannels = value; } }
         public int DiscretionRate { get { return mDescretionRate; } set { mDescretionRate = value; } }
@@ -161,6 +154,7 @@ namespace Earlvik.ArtiStereo
             }
             return result;
         }
+
         /// <summary>
         /// Adding one sound to another
         /// </summary>
@@ -168,49 +162,63 @@ namespace Earlvik.ArtiStereo
         /// <param name="channelFrom">Channel of sound to use for sum</param>
         /// <param name="channelTo">Target channel of sound</param>
         /// <param name="offset">Time offset in milliseconds</param>
-        public void Add(Sound sound,int channelFrom,int channelTo, int offset)
+        /// <param name="volume">Optional parameter to add with certain volume level</param>
+        public void Add(Sound sound,int channelFrom,int channelTo, int offset, double volume = 1)
         {
 
             if(channelTo>mChannels || channelTo<0) throw new ArgumentException("Channel number invalid");
             if (channelFrom > sound.mChannels || channelFrom<0) throw new ArgumentException("Channel number invalid");
             if(mDescretionRate != sound.mDescretionRate) throw new ArgumentException("different discretion rates");
             
-            float[] temp = new float[mSound[channelTo].Length];
-            Sound fromSound;
-            if (this == sound && channelFrom == channelTo)
+            
+            float[] fromSound = sound.mSound[channelFrom];
+            float[] temp = new float[Math.Max(mSound[channelTo].Length, offset + fromSound.Length)];
+            for (int i = 0; i < mSound[channelTo].Length; i++)
             {
-                fromSound = new Sound();
-                fromSound.mSound = new float[channelFrom+1][];
-                fromSound.mSound[channelFrom] = new float[temp.Length];
-                Array.Copy(sound.mSound[channelFrom], fromSound.mSound[channelFrom], temp.Length);
+                temp[i] = mSound[channelTo][i];
+            }
+            mSound[channelTo] = null;
+            for (int i = offset; i < temp.Length; i++)
+            {
+                temp[i] += i - offset < fromSound.Length ? (float)volume*fromSound[i - offset] : 0;
+               
+            }
+            mSound[channelTo] = temp;
+        }
+
+        public void Copy(Sound sound)
+        {
+            mChannels = sound.mChannels;
+            mDescretionRate = sound.mDescretionRate;
+            mBitsPerSample = sound.mBitsPerSample;
+            if (!SameSized(sound))
+            {
+                mSound = new float[mChannels][];
+                for (int i = 0; i < mChannels; i++)
+                {
+                    mSound[i] = new float[sound.mSound[i].Length];
+                    Array.Copy(sound.mSound[i], mSound[i], sound.mSound[i].Length);
+                }
             }
             else
             {
-                fromSound = sound;
-            }
-            Array.Copy(mSound[channelTo],temp,temp.Length);
-            mSound[channelTo] = new float[Math.Max(temp.Length,offset+fromSound.mSound[channelFrom].Length)];
-            for (int i = 0; i < offset; i++)
-            {
-                if (i >= temp.Length)
+                for (int i = 0; i < mChannels; i++)
                 {
-                    while (i < offset)
-                    {
-                        mSound[channelTo][i] = 0;
-                        i++;
-                    }
-                    break;
+                    Array.Copy(sound.mSound[i], mSound[i], sound.mSound[i].Length);
                 }
-                mSound[channelTo][i] = temp[i];
             }
-            for (int i = offset; i < mSound[channelTo].Length; i++)
+        }
+
+        bool SameSized(Sound sound)
+        {
+            if (mSound == null || sound.mSound == null) return false;
+            if (mSound.Length != sound.mSound.Length) return false;
+            for (int i = 0; i < mSound.Length; i++)
             {
-                float fromOld = (i < temp.Length) ? temp[i] : 0;
-                float fromNew = (i-offset < fromSound.mSound[channelFrom].Length) ? fromSound.mSound[channelFrom][i-offset] : 0;
-                mSound[channelTo][i] = fromOld + fromNew;
-                //if (_sound[channelTo][i] > 1) _sound[channelTo][i] = 1;
+                if (mSound[i].Length != sound.mSound[i].Length) return false;
             }
-            }
+            return true;
+        }
         /// <summary>
         /// Adjusting sound to the given maximum
         /// </summary>

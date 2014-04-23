@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Net.Mime;
 using System.Text;
 using System.Collections.Generic;
 using System.Linq;
@@ -192,6 +193,88 @@ namespace ArtiStereoTests
                 double result = AS.Geometry.Angle(array[4], array[i], true);
                 Assert.IsTrue(AS.Geometry.EqualDouble(result, i*Math.PI/4),"Angle was supposed to be "+i+"*Pi/4, but was "+result);
             }
+        }
+
+        [TestMethod]
+        public void FirstImageTest()
+        {
+            AS.Wall.Material mat = AS.Wall.Material.Brick;
+            AS.Room room = new AS.Room();
+            AS.Point NW = new AS.Point(0,10);
+            AS.Point NE = new AS.Point(5,10);
+            AS.Point SW = new AS.Point(0,0);
+            AS.Point SE = new AS.Point(5,0);
+            AS.Wall wall = new AS.Wall(NW,NE,mat);
+            room.AddWall(wall);
+            room.AddWall(new AS.Wall(NE, SE, mat));
+            room.AddWall(new AS.Wall(SE, SW, mat));
+            room.AddWall(new AS.Wall(SW, NW, mat));
+            AS.SoundPoint source = new AS.SoundPoint(2,4);
+            AS.Point result = new AS.Point(2,16);
+            AS.RoomImage image = new AS.RoomImage(room,wall,source);
+            Assert.IsTrue(result == image.Source,"Source was supposed to be "+result+" but was "+image.Source);
+            Assert.IsTrue(image.Reflectors.Count == 1 && image.Reflectors.Contains(wall), "Reflectors are supposed to contain only top wall, but had "+image.Reflectors.Count);
+
+        }
+
+        [TestMethod]
+        public void SecondImageTest()
+        {
+            AS.Wall.Material mat = AS.Wall.Material.Brick;
+            AS.Room room = new AS.Room();
+            AS.Point NW = new AS.Point(0, 10);
+            AS.Point NE = new AS.Point(5, 10);
+            AS.Point SW = new AS.Point(0, 0);
+            AS.Point SE = new AS.Point(5, 0);
+            AS.Wall wall = new AS.Wall(NW, NE, mat);
+            room.AddWall(wall);
+            room.AddWall(new AS.Wall(NE, SE, mat));
+            room.AddWall(new AS.Wall(SE, SW, mat));
+            room.AddWall(new AS.Wall(SW, NW, mat));
+            AS.SoundPoint source = new AS.SoundPoint(2, 4);
+            AS.Point result = new AS.Point(8, 16);
+            AS.RoomImage firstImage = new AS.RoomImage(room,wall,source);
+            AS.RoomImage secondImage = new AS.RoomImage(firstImage,new AS.Wall(5,10,5,20,mat));
+            Assert.IsTrue(result == secondImage.Source, "Source was supposed to be " + result + " but was " + secondImage.Source);
+        }
+
+        [TestMethod]
+        public void NonRectangularImageTest()
+        {
+            AS.Wall.Material mat = AS.Wall.Material.Brick;
+            AS.Room room = new AS.Room();
+            AS.Wall baseWall = new AS.Wall(0,0,9,0,mat);
+            AS.Wall leftWall = new AS.Wall(0,0,0,9,mat);
+            AS.Wall rightWall = new AS.Wall(9,0,0,9,mat);
+            AS.SoundPoint source = new AS.SoundPoint(1,4);
+            room.AddWall(baseWall);
+            room.AddWall(leftWall);
+            room.AddWall(rightWall);
+            room.AddSource(source);
+            AS.Point result = new AS.Point(5,8);
+            AS.RoomImage image = new AS.RoomImage(room,rightWall,source);
+            Assert.IsTrue(result == image.Source, "Source was supposed to be " + result + " but was " + image.Source);
+
+        }
+
+        [TestMethod]
+        public void TotalDistanceTest()
+        {
+            AS.Wall.Material mat = AS.Wall.Material.Brick;
+            AS.Room room = new AS.Room();
+            room.AddWall(new AS.Wall(0, 0, 5, 0, mat));
+            room.AddWall(new AS.Wall(0, 0, 0, 4, mat));
+            room.AddWall(new AS.Wall(0, 4, 5, 4, mat));
+            AS.Wall wall = new AS.Wall(5,4,5,0,mat);
+            room.AddWall(wall);
+            AS.SoundPoint source =new AS.SoundPoint(4,3);
+            room.AddSource(source);
+            AS.ListenerPoint listener = new AS.ListenerPoint(2,2);
+            room.AddListener(listener);
+            AS.RoomImage firstImage = new AS.RoomImage(room,wall,source);
+            AS.RoomImage secondImage = new AS.RoomImage(firstImage,new AS.Wall(5,0,10,0,mat));
+            AS.RoomImage thirdImage = new AS.RoomImage(secondImage,new AS.Wall(10,0,10,-4,mat));
+            double x = thirdImage.GetTotalDistance(room, listener);
         }
 
 

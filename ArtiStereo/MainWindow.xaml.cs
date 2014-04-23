@@ -20,10 +20,10 @@ namespace Earlvik.ArtiStereo
     /// </summary>
     public partial class MainWindow : Window
     {
-        private const int rightPanelWidth = 250;
         //Number of toolbar buttons
         const int buttonNumber=4;
         const int pixelPerMeter = 40;
+        private const int rightPanelWidth = 250;
         //List of handlers assigned to canvas mouseUp event
         readonly List<MouseButtonEventHandler> mCanvasMousehandlers = new List<MouseButtonEventHandler>();
         
@@ -37,6 +37,7 @@ namespace Earlvik.ArtiStereo
         //Room object
         Room mRoom;
         private IRoomObject mSelectedRoomObject;
+
         public MainWindow()
         {
             InitializeComponent();
@@ -110,27 +111,31 @@ namespace Earlvik.ArtiStereo
             int i = 0;
             while(i*dy<RoomCanvas.ActualHeight-20){
                 i++;
-                System.Windows.Shapes.Line lineH = new System.Windows.Shapes.Line();
-                lineH.StrokeThickness = 0.1;
-                lineH.Stroke = Brushes.Black;
-                lineH.X1 = 0;
-                lineH.Y1 = i * dy;
-                lineH.X2 = RoomCanvas.ActualWidth;
-                lineH.Y2 = i * dy;
-                lineH.Visibility = Visibility.Visible;
+                var lineH = new System.Windows.Shapes.Line
+                {
+                    StrokeThickness = 0.1,
+                    Stroke = Brushes.Black,
+                    X1 = 0,
+                    Y1 = i*dy,
+                    X2 = RoomCanvas.ActualWidth,
+                    Y2 = i*dy,
+                    Visibility = Visibility.Visible
+                };
                 RoomCanvas.Children.Add(lineH);
             }
             i = 0;
             while(i*dx<RoomCanvas.ActualWidth-20){
                 i++;
-                System.Windows.Shapes.Line lineV = new System.Windows.Shapes.Line();
-                lineV.StrokeThickness = 0.1;
-                lineV.Stroke = Brushes.Black;
-                lineV.X1 = i*dx;
-                lineV.Y1 = 0;
-                lineV.X2 = i*dx;
-                lineV.Y2 = RoomCanvas.ActualHeight;
-                lineV.Visibility = Visibility.Visible;
+                var lineV = new System.Windows.Shapes.Line
+                {
+                    StrokeThickness = 0.1,
+                    Stroke = Brushes.Black,
+                    X1 = i*dx,
+                    Y1 = 0,
+                    X2 = i*dx,
+                    Y2 = RoomCanvas.ActualHeight,
+                    Visibility = Visibility.Visible
+                };
 
                 RoomCanvas.Children.Add(lineV);
                 
@@ -140,7 +145,7 @@ namespace Earlvik.ArtiStereo
 
             foreach (Wall wall in mRoom.Walls)
             {
-                System.Windows.Shapes.Line line = new System.Windows.Shapes.Line
+                var line = new System.Windows.Shapes.Line
                 {
                     X1 = pixelPerMeter*wall.Start.X,
                     X2 = pixelPerMeter*wall.End.X,
@@ -209,11 +214,13 @@ namespace Earlvik.ArtiStereo
                 Canvas.SetLeft(image,x);
                 if (ReferenceEquals(listener, mSelectedRoomObject))
                 {
-                    var ellipse = new Ellipse();
-                    ellipse.Width = picSize;
-                    ellipse.Height = picSize;
-                    ellipse.Stroke = Brushes.Chartreuse;
-                    ellipse.Fill = Brushes.Chartreuse;
+                    var ellipse = new Ellipse
+                    {
+                        Width = picSize,
+                        Height = picSize,
+                        Stroke = Brushes.Chartreuse,
+                        Fill = Brushes.Chartreuse
+                    };
                     Canvas.SetTop(ellipse,y);
                     Canvas.SetLeft(ellipse,x);
                     ellipse.Visibility = Visibility.Visible;
@@ -224,13 +231,15 @@ namespace Earlvik.ArtiStereo
                 if (listener.Directional)
                 {
                     double angle = listener.DirectionAngle;
-                    var line = new System.Windows.Shapes.Line();
-                    line.X1 = x + (picSize/2);
-                    line.Y1 = y + (picSize/2);
-                    line.X2 = x+(picSize/2) + Math.Cos(angle) * (picSize/2);
-                    line.Y2 = y+(picSize/2) + Math.Sin(angle) * (picSize/2);
-                    line.Stroke = Brushes.Red;
-                    line.StrokeThickness = 1;
+                    var line = new System.Windows.Shapes.Line
+                    {
+                        X1 = x + (picSize/2),
+                        Y1 = y + (picSize/2),
+                        X2 = x + (picSize/2) + Math.Cos(angle)*(picSize/2),
+                        Y2 = y + (picSize/2) + Math.Sin(angle)*(picSize/2),
+                        Stroke = Brushes.Red,
+                        StrokeThickness = 1
+                    };
                     RoomCanvas.Children.Add(line);
                 }
                 
@@ -250,11 +259,13 @@ namespace Earlvik.ArtiStereo
                 Canvas.SetLeft(image, x);
                 if (ReferenceEquals(source, mSelectedRoomObject))
                 {
-                    Ellipse ellipse = new Ellipse();
-                    ellipse.Width = picSize;
-                    ellipse.Height = picSize;
-                    ellipse.Stroke = Brushes.Chartreuse;
-                    ellipse.Fill = Brushes.Chartreuse;
+                    Ellipse ellipse = new Ellipse
+                    {
+                        Width = picSize,
+                        Height = picSize,
+                        Stroke = Brushes.Chartreuse,
+                        Fill = Brushes.Chartreuse
+                    };
                     Canvas.SetTop(ellipse, y);
                     Canvas.SetLeft(ellipse, x);
                     ellipse.Visibility = Visibility.Visible;
@@ -320,6 +331,107 @@ namespace Earlvik.ArtiStereo
             if (mRedoElements.Count == 0) RedoMenuItem.IsEnabled = false;
             UndoMenuItem.IsEnabled = true;
             DrawRoom();
+        }
+
+        private void RoomCanvas_MouseDown(object sender, MouseButtonEventArgs e)
+        {
+           
+            if (mSelectedRoomObject != null)
+            {
+                double xPrev = e.GetPosition(RoomCanvas).X;
+                double yPrev = e.GetPosition(RoomCanvas).Y;
+                if (mSelectedRoomObject is SoundPoint && Geometry.Distance(new Point(xPrev/pixelPerMeter,yPrev/pixelPerMeter), mSelectedRoomObject as SoundPoint )<0.15)
+                {
+                    MouseEventHandler moveHandler = null;
+                    moveHandler = (moveSender, moveE) =>
+                    {
+                       
+                        if (moveE.LeftButton == MouseButtonState.Released)
+                        {
+                          
+                            RoomCanvas.MouseMove -= moveHandler;
+                            moveHandler = null;
+                            DrawRoom();
+                            UpdateProps(mSelectedRoomObject);
+                            return;
+                        }
+                        double dx = (moveE.GetPosition(RoomCanvas).X - xPrev);
+                        double dy = (moveE.GetPosition(RoomCanvas).Y - yPrev);
+                        ((SoundPoint)mSelectedRoomObject).X += dx / pixelPerMeter;
+                        ((SoundPoint)mSelectedRoomObject).Y += dy / pixelPerMeter;
+                        xPrev = moveE.GetPosition(RoomCanvas).X;
+                        yPrev = moveE.GetPosition(RoomCanvas).Y;
+                        UpdateProps(mSelectedRoomObject);
+                        DrawRoom();
+                    };
+
+
+                    RoomCanvas.MouseMove += moveHandler;
+
+                }
+                else if (mSelectedRoomObject is Wall)
+                {
+                    Point clickPoint = new Point(xPrev/pixelPerMeter, yPrev/pixelPerMeter);
+                    Point point =
+                        (Geometry.Distance(clickPoint,
+                            (mSelectedRoomObject as Wall).Start) <
+                         Geometry.Distance(clickPoint,
+                             (mSelectedRoomObject as Wall).End))
+                            ? (mSelectedRoomObject as Wall).Start
+                            : (mSelectedRoomObject as Wall).End;
+                    if (Geometry.Distance(clickPoint, point) > 0.15) return;
+                    MouseEventHandler moveHandler = null;
+                    moveHandler = (moveSender, moveE) =>
+                    {
+                        Cursor = Cursors.None;
+                        if (moveE.LeftButton == MouseButtonState.Released)
+                        {
+                            Cursor = Cursors.Arrow;
+                            RoomCanvas.MouseMove -= moveHandler;
+                            moveHandler = null;
+                            DrawRoom();
+                            UpdateProps(mSelectedRoomObject);
+                            return;
+                        }
+                        double dx = (moveE.GetPosition(RoomCanvas).X - xPrev);
+                        double dy = (moveE.GetPosition(RoomCanvas).Y - yPrev);
+                        point.X += dx/pixelPerMeter;
+                        point.Y += dy/pixelPerMeter;
+                        xPrev = moveE.GetPosition(RoomCanvas).X;
+                        yPrev = moveE.GetPosition(RoomCanvas).Y;
+                        UpdateProps(mSelectedRoomObject);
+                        DrawRoom();
+                    };
+                    RoomCanvas.MouseMove += moveHandler;
+                }
+            }
+        }
+
+        private void RoomCanvas_MouseMove(object sender, MouseEventArgs e)
+        {
+            if (mSelectedRoomObject is Wall)
+            {
+                double xPrev = e.GetPosition(RoomCanvas).X;
+                double yPrev = e.GetPosition(RoomCanvas).Y;
+                Point clickPoint = new Point(xPrev/pixelPerMeter, yPrev/pixelPerMeter);
+                Point point =
+                    (Geometry.Distance(clickPoint,
+                        (mSelectedRoomObject as Wall).Start) <
+                     Geometry.Distance(clickPoint,
+                         (mSelectedRoomObject as Wall).End))
+                        ? (mSelectedRoomObject as Wall).Start
+                        : (mSelectedRoomObject as Wall).End;
+                if (Geometry.Distance(clickPoint, point) > 0.15)
+                {
+                    Cursor = Cursors.Arrow;
+                    return;
+                }
+                Cursor = Cursors.Cross;
+            }
+            else
+            {
+                Cursor = Cursors.Arrow;
+            }
         }
 
         private void RoomCanvas_MouseUp(object sender, MouseButtonEventArgs e)
@@ -816,6 +928,22 @@ namespace Earlvik.ArtiStereo
             };
         }
 
+        private void UpdateProps(IRoomObject obj)
+        {
+            if (obj is Wall)
+            {
+                UpdateWallProps((Wall)obj);
+            }
+            else if (obj is ListenerPoint)
+            {
+                UpdateListenerProps((ListenerPoint) obj);
+            }
+            else if(obj is SoundPoint)
+            {
+                UpdateSourceProps((SoundPoint)obj);
+            }
+        }
+
         private void UpdateSourceProps(SoundPoint source)
         {
             PropsPanel.Children.Clear();
@@ -908,11 +1036,15 @@ namespace Earlvik.ArtiStereo
                 Width = rightPanelWidth
             };
             PropsPanel.Children.Add(name);
-            TextBlock material = new TextBlock { FontSize = 14, Text = "Material", Width = rightPanelWidth };
-            material.TextAlignment = TextAlignment.Center;
+            TextBlock material = new TextBlock
+            {
+                FontSize = 14,
+                Text = "Material",
+                Width = rightPanelWidth,
+                TextAlignment = TextAlignment.Center
+            };
             PropsPanel.Children.Add(material);
-            ComboBox materialBox = new ComboBox();
-            materialBox.Width = 180;
+            ComboBox materialBox = new ComboBox {Width = 180};
             materialBox.Items.Add(Wall.MaterialPreset.Brick);
             materialBox.Items.Add(Wall.MaterialPreset.Glass);
             materialBox.Items.Add(Wall.MaterialPreset.Granite);
@@ -1153,126 +1285,9 @@ namespace Earlvik.ArtiStereo
             };
         }
 
-        private void UpdateProps(IRoomObject obj)
-        {
-            if (obj is Wall)
-            {
-                UpdateWallProps((Wall)obj);
-            }
-            else if (obj is ListenerPoint)
-            {
-                UpdateListenerProps((ListenerPoint) obj);
-            }
-            else if(obj is SoundPoint)
-            {
-                UpdateSourceProps((SoundPoint)obj);
-            }
-        }
-
         private void Window_SizeChanged(object sender, SizeChangedEventArgs e)
         {
             SoundProgressBar.Width = Width / 2-20;
-        }
-
-        private void RoomCanvas_MouseDown(object sender, MouseButtonEventArgs e)
-        {
-           
-            if (mSelectedRoomObject != null)
-            {
-               double xPrev = e.GetPosition(RoomCanvas).X;
-                double yPrev = e.GetPosition(RoomCanvas).Y;
-                if (mSelectedRoomObject is SoundPoint && Geometry.Distance(new Point(xPrev/pixelPerMeter,yPrev/pixelPerMeter), mSelectedRoomObject as SoundPoint )<0.15)
-                {
-                    MouseEventHandler moveHandler = null;
-                    moveHandler = (moveSender, moveE) =>
-                    {
-                       
-                        if (moveE.LeftButton == MouseButtonState.Released)
-                        {
-                          
-                            RoomCanvas.MouseMove -= moveHandler;
-                            moveHandler = null;
-                            DrawRoom();
-                            UpdateProps(mSelectedRoomObject);
-                            return;
-                        }
-                        double dx = (moveE.GetPosition(RoomCanvas).X - xPrev);
-                        double dy = (moveE.GetPosition(RoomCanvas).Y - yPrev);
-                        ((SoundPoint)mSelectedRoomObject).X += dx / pixelPerMeter;
-                        ((SoundPoint)mSelectedRoomObject).Y += dy / pixelPerMeter;
-                        xPrev = moveE.GetPosition(RoomCanvas).X;
-                        yPrev = moveE.GetPosition(RoomCanvas).Y;
-                        UpdateProps(mSelectedRoomObject);
-                        DrawRoom();
-                    };
-
-
-                    RoomCanvas.MouseMove += moveHandler;
-
-                }
-                else if (mSelectedRoomObject is Wall)
-                {
-                    Point clickPoint = new Point(xPrev/pixelPerMeter, yPrev/pixelPerMeter);
-                    Point point =
-                        (Geometry.Distance(clickPoint,
-                            (mSelectedRoomObject as Wall).Start) <
-                         Geometry.Distance(clickPoint,
-                             (mSelectedRoomObject as Wall).End))
-                            ? (mSelectedRoomObject as Wall).Start
-                            : (mSelectedRoomObject as Wall).End;
-                    if (Geometry.Distance(clickPoint, point) > 0.15) return;
-                    MouseEventHandler moveHandler = null;
-                    moveHandler = (moveSender, moveE) =>
-                    {
-                        Cursor = Cursors.None;
-                        if (moveE.LeftButton == MouseButtonState.Released)
-                        {
-                            Cursor = Cursors.Arrow;
-                            RoomCanvas.MouseMove -= moveHandler;
-                            moveHandler = null;
-                            DrawRoom();
-                            UpdateProps(mSelectedRoomObject);
-                            return;
-                        }
-                        double dx = (moveE.GetPosition(RoomCanvas).X - xPrev);
-                        double dy = (moveE.GetPosition(RoomCanvas).Y - yPrev);
-                        point.X += dx/pixelPerMeter;
-                        point.Y += dy/pixelPerMeter;
-                        xPrev = moveE.GetPosition(RoomCanvas).X;
-                        yPrev = moveE.GetPosition(RoomCanvas).Y;
-                        UpdateProps(mSelectedRoomObject);
-                        DrawRoom();
-                    };
-                    RoomCanvas.MouseMove += moveHandler;
-                }
-            }
-        }
-
-        private void RoomCanvas_MouseMove(object sender, MouseEventArgs e)
-        {
-            if (mSelectedRoomObject is Wall)
-            {
-                double xPrev = e.GetPosition(RoomCanvas).X;
-                double yPrev = e.GetPosition(RoomCanvas).Y;
-                Point clickPoint = new Point(xPrev/pixelPerMeter, yPrev/pixelPerMeter);
-                Point point =
-                    (Geometry.Distance(clickPoint,
-                        (mSelectedRoomObject as Wall).Start) <
-                     Geometry.Distance(clickPoint,
-                         (mSelectedRoomObject as Wall).End))
-                        ? (mSelectedRoomObject as Wall).Start
-                        : (mSelectedRoomObject as Wall).End;
-                if (Geometry.Distance(clickPoint, point) > 0.15)
-                {
-                    Cursor = Cursors.Arrow;
-                    return;
-                }
-                Cursor = Cursors.Cross;
-            }
-            else
-            {
-                Cursor = Cursors.Arrow;
-            }
         }
     }
 }

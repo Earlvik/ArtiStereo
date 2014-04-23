@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using C1.Silverlight.Resources;
 
 namespace Earlvik.ArtiStereo
 {
@@ -26,6 +27,17 @@ namespace Earlvik.ArtiStereo
             _walls = new List<Wall>();
             _sources = new List<SoundPoint>();
             _listeners = new List<ListenerPoint>();
+        }
+
+        public Room(Room room)
+        {
+            _walls =new List<Wall>();
+            foreach (Wall wall in room.Walls)
+            {
+                _walls.Add(wall);
+            }
+            _sources = room.Sources;
+            _listeners = room.Listeners;
         }
 
         public double CeilingHeight { set; get; }
@@ -95,11 +107,11 @@ namespace Earlvik.ArtiStereo
                             percentReduction *= listener.GetReduction(new Line(source, listener));
                         }
                        
-                        listener.Sound.Add(source.Sound.CopyWithVolume(percentReduction,0), 0, 0,
-                            source.Sound.MillesecondsToSamples((int) time));
+                        listener.Sound.Add(source.Sound, 0, 0,
+                            source.Sound.MillesecondsToSamples((int) time),percentReduction);
                     }
                     //Primary reflections
-                    Sound snd;
+                    Sound snd = new Sound();
                     foreach (Wall wall in Walls)
                     {
                         Point refPoint = Geometry.ReflectionPoint(wall, source, listener);
@@ -107,7 +119,7 @@ namespace Earlvik.ArtiStereo
                         if (
                             !(CheckPath(new Line(source, refPoint), wall) &&
                               CheckPath(new Line(refPoint, listener), wall))) continue;
-                        snd = new Sound(source.Sound);
+                        snd.Copy(source.Sound);
                         //snd.SetVolume(SoundReduction(Geometry.Distance(source, refPoint)),0);
                         Double angle = Geometry.Angle(new Line(source, refPoint), new Line(refPoint, listener),false) / 2;
                         Double refCoefft = wall.ReflectionCoefft(angle);
@@ -119,13 +131,14 @@ namespace Earlvik.ArtiStereo
                         {
                             reductionCoefft *= listener.GetReduction(new Line(refPoint, listener));
                         }
+                        
                         snd.SetVolume(reductionCoefft, 0);
                         //Frequency-based reduction
                         snd.SetVolume(0,wall.WallMaterial.Low,wall.WallMaterial.Medium,wall.WallMaterial.High);
                         Double time = (Geometry.Distance(source, refPoint) + Geometry.Distance(refPoint, listener)) /
                                       airSSpeed * 1000;
                         listener.Sound.Add(snd, 0, 0, (int)time);
-                        snd = null;
+                        //snd = null;
                     }
                 }
                 
@@ -295,12 +308,31 @@ namespace Earlvik.ArtiStereo
             mY = point.Y;
         }
 
+        public Point(Point point)
+        {
+            mX = point.X;
+            mY = point.Y;
+        }
         public Point()
         {
             X = 0;
             Y = 0;
         }
 
+        public static Point Vector(Point start, Point end)
+        {
+            return new Point(end.X-start.X,end.Y-start.Y);
+        }
+
+        public static Point operator +(Point first, Point second)
+        {
+            return new Point(first.X + second.X,first.Y + second.Y);
+        }
+
+        public static Point operator -(Point first, Point second)
+        {
+            return new Point(first.X - second.X, first.Y - second.Y);
+        }
         public double X
         {
             set
@@ -420,7 +452,12 @@ namespace Earlvik.ArtiStereo
 
         protected bool Equals(Line other)
         {
-            return Equals(Start, other.Start) && Equals(End, other.End);
+            return (Equals(Start, other.Start) && Equals(End, other.End)) || (Equals(Start,other.End) && Equals(End, other.Start));
+        }
+
+        public override string ToString()
+        {
+            return Start + " --> " + End;
         }
     }
     /// <summary>
@@ -647,6 +684,83 @@ namespace Earlvik.ArtiStereo
             
         }
     }
+
+    public class RoomImage
+    {
+        public List<Wall> Reflectors= new List<Wall>();
+        public Wall[] ImageWalls;
+        public Point Source;
+        public List<Point> PrevSourceImages= new List<Point>();
+
+        public RoomImage(Room room, Wall wall, Point source)
+        {
+            if(!room.Walls.Contains(wall) || !room.Sources.Contains(source)) throw new ArgumentException("Room elements are non-existent");
+            ImageWalls = new Wall[room.Walls.Count];
+            ImageWalls[0] = wall;
+            Reflectors.Add(wall);
+            int i = 1;
+            foreach (Wall roomWall in room.Walls)
+            {
+                if (roomWall == wall) continue;
+                Point startVector = Geometry.ParallelProjection(wall, roomWall.Start,true);
+                startVector.X -= roomWall.Start.X;
+                startVector.Y -= roomWall.Start.Y;
+
+                Point endVector = Geometry.ParallelProjection(wall, roomWall.End, true);
+                endVector.X -= roomWall.End.X;
+                endVector.Y -= roomWall.End.Y;
+
+                Point newStart = new Point(roomWall.Start.X+2*startVector.X,roomWall.Start.Y+2*startVector.Y);
+                Point newEnd = new Point(roomWall.End.X + 2 * endVector.X, roomWall.End.Y + 2 * endVector.Y);
+                ImageWalls[i] = new Wall(newStart,newEnd,roomWall.WallMaterial);
+                i++;
+            }
+            Point sourceVector = Geometry.ParallelProjection(wall, source, true);
+            sourceVector.X -= source.X;
+            sourceVector.Y -= source.Y;
+            Source = new Point(source.X+2*sourceVector.X,source.Y+2*sourceVector.Y);
+             PrevSourceImages.Add(source);
+        }
+
+        public RoomImage(RoomImage image, Wall wall)
+        {
+            if(!image.ImageWalls.Contains(wall)) throw new ArgumentException("Room elements are non-existent");
+            ImageWalls = new Wall[image.ImageWalls.Length];
+            ImageWalls[0] = wall;
+            Reflectors.AddRange(image.Reflectors);
+            Reflectors.Add(wall);
+            int i = 1;
+            foreach (Wall roomWall in image.ImageWalls)
+            {
+                if (roomWall == wall) continue;
+                Point startVector = Geometry.ParallelProjection(wall, roomWall.Start, true);
+                startVector.X -= roomWall.Start.X;
+                startVector.Y -= roomWall.Start.Y;
+
+                Point endVector = Geometry.ParallelProjection(wall, roomWall.End, true);
+                endVector.X -= roomWall.End.X;
+                endVector.Y -= roomWall.End.Y;
+
+                Point newStart = new Point(roomWall.Start.X + 2 * startVector.X, roomWall.Start.Y + 2 * startVector.Y);
+                Point newEnd = new Point(roomWall.End.X + 2 * endVector.X, roomWall.End.Y + 2 * endVector.Y);
+                ImageWalls[i] = new Wall(newStart, newEnd, roomWall.WallMaterial);
+                i++;
+            }
+            Point sourceVector = Geometry.ParallelProjection(wall, image.Source, true);
+            sourceVector.X -= image.Source.X;
+            sourceVector.Y -= image.Source.Y;
+            Source = new Point(image.Source.X + 2 * sourceVector.X, image.Source.Y + 2 * sourceVector.Y);
+            PrevSourceImages.AddRange(image.PrevSourceImages);
+            PrevSourceImages.Add(image.Source);
+        }
+
+        public double GetTotalDistance(Room room, ListenerPoint listener)
+        {
+            if(!room.Listeners.Contains(listener)) throw new ArgumentException("Room elements are non-existent");
+            return Geometry.Distance(listener, Source);
+        }
+    }
+
 
     /// <summary>
     /// Class containing basic geometry methods for calculating the route of sound waves
@@ -880,19 +994,19 @@ namespace Earlvik.ArtiStereo
             //Checking if any of the endpoints is on the other line
             if (Math.Abs(d1) < eps && (OnSegment(second, first.Start) || wholeLine))
             {
-                return first.Start;
+                return new Point(first.Start);
             }
             if (Math.Abs(d2) < eps && (OnSegment(second, first.End) || wholeLine))
             {
-                return first.End;
+                return new Point(first.End);
             }
             if (Math.Abs(d3) < eps && (OnSegment(first, second.Start) || wholeLine))
             {
-                return second.Start;
+                return new Point(second.Start);
             }
             if (Math.Abs(d4) < eps && (OnSegment(first, second.End) || wholeLine))
             {
-                return second.End;
+                return new Point(second.End);
             }
             //Checking for intersections apart from the endpoints
 
