@@ -48,20 +48,21 @@ namespace ArtiStereoTests
            sound.CreateWav(@"D:\shit.wav");
        }
 
-        [TestMethod]
+        [TestMethod, Timeout(5000)]
         public void PrimaryReflectionsComplexTest()
         {
+             
             AS.Wall.Material mat = AS.Wall.Material.OakWoodCarpeted;
             AS.Room room = new AS.Room();
-            room.AddWall(new AS.Wall(0, 0, 17, 0, mat));
-            room.AddWall(new AS.Wall(0, 0, 2, 10, mat));
-            room.AddWall(new AS.Wall(17, 0, 14, 10, mat));
-            room.AddWall(new AS.Wall(2, 10, 14, 10, mat));
-            AS.SoundPoint source = new AS.SoundPoint(12, 5);
-            source.Sound = AS.Sound.GetSoundFromWav(@"D:\fromWar.wav");
+            room.AddWall(new AS.Wall(0, 0, 4, 0, mat));
+            room.AddWall(new AS.Wall(0, 0, 0, 10, mat));
+            room.AddWall(new AS.Wall(4, 0, 4, 10, mat));
+            room.AddWall(new AS.Wall(0, 10, 4, 10, mat));
+            AS.SoundPoint source = new AS.SoundPoint(2, 1);
+            source.Sound = AS.Sound.GetSoundFromWav(@"D:\Whistling.wav");
             room.AddSource(source);
-            room.AddListener(new AS.ListenerPoint(3, 7,new AS.Line(0,0,-1,0),AS.ListenerPoint.Cardioid));
-            room.AddListener(new AS.ListenerPoint(7, 7, new AS.Line(0,0,1,0),AS.ListenerPoint.Cardioid ));
+            room.AddListener(new AS.ListenerPoint(1, 8,new AS.Line(0,0,-1,0),AS.ListenerPoint.Cardioid));
+            room.AddListener(new AS.ListenerPoint(3, 8, new AS.Line(0,0,1,0),AS.ListenerPoint.Cardioid ));
 
             room.CalculateSound();
             AS.Sound sound = new AS.Sound(2,source.Sound.DiscretionRate,source.Sound.BitsPerSample);
@@ -70,7 +71,7 @@ namespace ArtiStereoTests
             //sound.AdjustVolume(0.75);
             //sound.SetVolume(0.6,0);
             //sound.SetVolume(0.6,1);
-            sound.CreateWav(@"D:\fromR.wav");
+            sound.CreateWav(@"D:\Result.wav");
         }
     
         [TestMethod]

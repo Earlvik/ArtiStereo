@@ -21,6 +21,7 @@ namespace Earlvik.ArtiStereo
     public partial class MainWindow : Window
     {
         //Number of toolbar buttons
+        private const double closeDistance = 0.25;
         const int buttonNumber=4;
         const int pixelPerMeter = 40;
         private const int rightPanelWidth = 250;
@@ -37,6 +38,7 @@ namespace Earlvik.ArtiStereo
         //Room object
         Room mRoom;
         private IRoomObject mSelectedRoomObject;
+        private const double numFieldWidth = 40;
 
         public MainWindow()
         {
@@ -386,6 +388,24 @@ namespace Earlvik.ArtiStereo
                         Cursor = Cursors.None;
                         if (moveE.LeftButton == MouseButtonState.Released)
                         {
+                            //Magneting
+                            foreach (Wall wall in mRoom.Walls)
+                            {
+                                if (Geometry.Distance(wall.Start, point) < closeDistance)
+                                {
+                                    point.X = wall.Start.X;
+                                    point.Y = wall.Start.Y;
+                                    wall.Start = point;
+                                    break;
+                                }
+                                if (Geometry.Distance(wall.End, point) < closeDistance)
+                                {
+                                    point.X = wall.End.X;
+                                    point.Y = wall.End.Y;
+                                    wall.End = point;
+                                    break;
+                                }
+                            }
                             Cursor = Cursors.Arrow;
                             RoomCanvas.MouseMove -= moveHandler;
                             moveHandler = null;
@@ -397,6 +417,7 @@ namespace Earlvik.ArtiStereo
                         double dy = (moveE.GetPosition(RoomCanvas).Y - yPrev);
                         point.X += dx/pixelPerMeter;
                         point.Y += dy/pixelPerMeter;
+                        
                         xPrev = moveE.GetPosition(RoomCanvas).X;
                         yPrev = moveE.GetPosition(RoomCanvas).Y;
                         UpdateProps(mSelectedRoomObject);
@@ -476,7 +497,7 @@ namespace Earlvik.ArtiStereo
                 case 1:
                 {
                     //Add wall
-                    const double closeDistance = 0.3;
+                   
                     System.Windows.Point position = e.GetPosition(RoomCanvas);
                     AddMarker(position);
                     Point first = new Point(position.X/pixelPerMeter, position.Y/pixelPerMeter);
@@ -764,11 +785,11 @@ namespace Earlvik.ArtiStereo
             StackPanel locationPanel = new StackPanel { Orientation = Orientation.Horizontal, Width = rightPanelWidth };
             TextBlock xblock = new TextBlock { FontSize = 10, Text = "X: ", Margin = new Thickness(5, 5, 5, 0) };
             locationPanel.Children.Add(xblock);
-            TextBox xbox = new TextBox{ FontSize = 10, Text = listener.X + "", Width = 30, TextAlignment = TextAlignment.Left };
+            TextBox xbox = new TextBox{ FontSize = 10, Text = listener.X + "", Width = numFieldWidth, TextAlignment = TextAlignment.Left };
             locationPanel.Children.Add(xbox);
             TextBlock yblock = new TextBlock { FontSize = 10, Text = "Y: ", Margin = new Thickness(5, 5, 5, 0) };
             locationPanel.Children.Add(yblock);
-            TextBox ybox = new TextBox{ FontSize = 10, Text = listener.Y + "", Width = 30, TextAlignment = TextAlignment.Left };
+            TextBox ybox = new TextBox{ FontSize = 10, Text = listener.Y + "", Width = numFieldWidth, TextAlignment = TextAlignment.Left };
             locationPanel.Children.Add(ybox);
             PropsPanel.Children.Add(locationPanel);
 
@@ -783,11 +804,11 @@ namespace Earlvik.ArtiStereo
                 StackPanel directionPanel = new StackPanel { Orientation = Orientation.Horizontal, Width = rightPanelWidth };
                 TextBlock xdirblock = new TextBlock { FontSize = 10, Text = "X: ", Margin = new Thickness(5, 5, 5, 0) };
                 directionPanel.Children.Add(xdirblock);
-                xdirbox = new TextBox { FontSize = 10, Text = listener.DirectionX + "", Width = 30, TextAlignment = TextAlignment.Left };
+                xdirbox = new TextBox { FontSize = 10, Text = listener.DirectionX + "", Width = numFieldWidth, TextAlignment = TextAlignment.Left };
                 directionPanel.Children.Add(xdirbox);
                 TextBlock ydirblock = new TextBlock { FontSize = 10, Text = "Y: ", Margin = new Thickness(5, 5, 5, 0) };
                 directionPanel.Children.Add(ydirblock);
-                ydirbox = new TextBox { FontSize = 10, Text = listener.DirectionY + "", Width = 30, TextAlignment = TextAlignment.Left };
+                ydirbox = new TextBox { FontSize = 10, Text = listener.DirectionY + "", Width = numFieldWidth, TextAlignment = TextAlignment.Left };
                 directionPanel.Children.Add(ydirbox);
                 PropsPanel.Children.Add(directionPanel);
             }
@@ -960,11 +981,11 @@ namespace Earlvik.ArtiStereo
             StackPanel locationPanel = new StackPanel { Orientation = Orientation.Horizontal, Width = rightPanelWidth };
             TextBlock xblock = new TextBlock { FontSize = 10, Text = "X: ", Margin = new Thickness(5, 5, 5, 0) };
             locationPanel.Children.Add(xblock);
-            TextBox xbox = new TextBox { FontSize = 10, Text = source.X + "", Width = 30, TextAlignment = TextAlignment.Left };
+            TextBox xbox = new TextBox { FontSize = 10, Text = source.X + "", Width = numFieldWidth, TextAlignment = TextAlignment.Left };
             locationPanel.Children.Add(xbox);
             TextBlock yblock = new TextBlock { FontSize = 10, Text = "Y: ", Margin = new Thickness(5, 5, 5, 0) };
             locationPanel.Children.Add(yblock);
-            TextBox ybox = new TextBox { FontSize = 10, Text = source.Y + "", Width = 30, TextAlignment = TextAlignment.Left };
+            TextBox ybox = new TextBox { FontSize = 10, Text = source.Y + "", Width = numFieldWidth, TextAlignment = TextAlignment.Left };
             locationPanel.Children.Add(ybox);
             PropsPanel.Children.Add(locationPanel);
             Button deleteButton = new Button { Content = "Delete source", HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(10, 10, 10, 10) };
@@ -1078,11 +1099,11 @@ namespace Earlvik.ArtiStereo
             StackPanel firstPanel = new StackPanel{Orientation = Orientation.Horizontal, Width = rightPanelWidth};
             TextBlock xbegblock = new TextBlock{FontSize = 10, Text = "X: ",Margin = new Thickness(5,5,5,0)};
             firstPanel.Children.Add(xbegblock);
-            TextBox xbegbox = new TextBox{ FontSize = 10, Text = wall.Start.X+"",Width=30,TextAlignment = TextAlignment.Left};
+            TextBox xbegbox = new TextBox{ FontSize = 10, Text = wall.Start.X+"",Width=numFieldWidth,TextAlignment = TextAlignment.Left};
             firstPanel.Children.Add(xbegbox);
             TextBlock ybegblock = new TextBlock { FontSize = 10, Text = "Y: ", Margin = new Thickness(5, 5, 5, 0) };
             firstPanel.Children.Add(ybegblock);
-            TextBox ybegbox = new TextBox { FontSize = 10, Text = wall.Start.Y + "", Width = 30, TextAlignment = TextAlignment.Left };
+            TextBox ybegbox = new TextBox { FontSize = 10, Text = wall.Start.Y + "", Width = numFieldWidth, TextAlignment = TextAlignment.Left };
             firstPanel.Children.Add(ybegbox);
             PropsPanel.Children.Add(firstPanel);
 
@@ -1091,11 +1112,11 @@ namespace Earlvik.ArtiStereo
             StackPanel secondPanel = new StackPanel { Orientation = Orientation.Horizontal, Width = rightPanelWidth };
             TextBlock xendblock = new TextBlock { FontSize = 10, Text = "X: ", Margin = new Thickness(5, 5, 5, 0) };
             secondPanel.Children.Add(xendblock);
-            TextBox xendbox = new TextBox { FontSize = 10, Text = wall.End.X + "", Width = 30, TextAlignment = TextAlignment.Left };
+            TextBox xendbox = new TextBox { FontSize = 10, Text = wall.End.X + "", Width = numFieldWidth, TextAlignment = TextAlignment.Left };
             secondPanel.Children.Add(xendbox);
             TextBlock yendblock = new TextBlock { FontSize = 10, Text = "Y: ", Margin = new Thickness(5, 5, 5, 0) };
             secondPanel.Children.Add(yendblock);
-            TextBox yendbox = new TextBox{ FontSize = 10, Text = wall.End.Y + "", Width = 30, TextAlignment = TextAlignment.Left };
+            TextBox yendbox = new TextBox{ FontSize = 10, Text = wall.End.Y + "", Width = numFieldWidth, TextAlignment = TextAlignment.Left };
             secondPanel.Children.Add(yendbox);
             PropsPanel.Children.Add(secondPanel);
 
@@ -1109,17 +1130,17 @@ namespace Earlvik.ArtiStereo
             PropsPanel.Children.Add(filtering);
             StackPanel freqPanel = new StackPanel{Orientation = Orientation.Horizontal,Width = rightPanelWidth};
             TextBlock lowBlock = new TextBlock {FontSize = 10, Text = "LOW: ", Margin = new Thickness(5, 5, 5, 0)};
-            TextBox lowBox = new TextBox{FontSize = 10,Text = wall.WallMaterial.Low+"",Width = 40,TextAlignment = TextAlignment.Left};
+            TextBox lowBox = new TextBox{FontSize = 10,Text = wall.WallMaterial.Low+"",Width = numFieldWidth,TextAlignment = TextAlignment.Left};
             freqPanel.Children.Add(lowBlock);
             freqPanel.Children.Add(lowBox);
 
             TextBlock medBlock = new TextBlock { FontSize = 10, Text = "MED: ", Margin = new Thickness(5, 5, 5, 0) };
-            TextBox medBox = new TextBox { FontSize = 10, Text = wall.WallMaterial.Medium + "", Width = 40, TextAlignment = TextAlignment.Left };
+            TextBox medBox = new TextBox { FontSize = 10, Text = wall.WallMaterial.Medium + "", Width = numFieldWidth, TextAlignment = TextAlignment.Left };
             freqPanel.Children.Add(medBlock);
             freqPanel.Children.Add(medBox);
 
             TextBlock highBlock = new TextBlock { FontSize = 10, Text = "HIGH: ", Margin = new Thickness(5, 5, 5, 0) };
-            TextBox highBox = new TextBox { FontSize = 10, Text = wall.WallMaterial.High + "", Width = 40, TextAlignment = TextAlignment.Left };
+            TextBox highBox = new TextBox { FontSize = 10, Text = wall.WallMaterial.High + "", Width = numFieldWidth, TextAlignment = TextAlignment.Left };
             freqPanel.Children.Add(highBlock);
             freqPanel.Children.Add(highBox);
 

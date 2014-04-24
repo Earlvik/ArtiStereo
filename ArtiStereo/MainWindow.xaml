@@ -42,11 +42,7 @@
                             <Separator/>
                             <MenuItem Header="Clear Workplace" Name ="ClearMenuItem" Click="ClearMenuItem_Click"></MenuItem>
                         </MenuItem>
-                        <MenuItem Header="Tools">
-                            <MenuItem Header="Material Manager" Name="MaterialMenuItem"></MenuItem>
-                            <MenuItem Header="Microphone Directional Manger" Name="MicMenuItem"></MenuItem>
-                        </MenuItem>
-                        <MenuItem Header="Help">
+                            <MenuItem Header="Help">
                             <MenuItem Header="Manual" Name="ManMenuItem"></MenuItem>
                             <MenuItem Header="About" Name="AboutMenuItem"></MenuItem>
                         </MenuItem>
