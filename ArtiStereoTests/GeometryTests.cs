@@ -210,6 +210,7 @@ namespace ArtiStereoTests
             room.AddWall(new AS.Wall(SE, SW, mat));
             room.AddWall(new AS.Wall(SW, NW, mat));
             AS.SoundPoint source = new AS.SoundPoint(2,4);
+            room.AddSource(source);
             AS.Point result = new AS.Point(2,16);
             AS.RoomImage image = new AS.RoomImage(room,wall,source);
             Assert.IsTrue(result == image.Source,"Source was supposed to be "+result+" but was "+image.Source);
@@ -232,6 +233,7 @@ namespace ArtiStereoTests
             room.AddWall(new AS.Wall(SE, SW, mat));
             room.AddWall(new AS.Wall(SW, NW, mat));
             AS.SoundPoint source = new AS.SoundPoint(2, 4);
+            room.AddSource(source);
             AS.Point result = new AS.Point(8, 16);
             AS.RoomImage firstImage = new AS.RoomImage(room,wall,source);
             AS.RoomImage secondImage = new AS.RoomImage(firstImage,new AS.Wall(5,10,5,20,mat));

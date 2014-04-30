@@ -48,18 +48,21 @@ namespace ArtiStereoTests
            sound.CreateWav(@"D:\shit.wav");
        }
 
-        [TestMethod, Timeout(5000)]
+        [TestMethod]
         public void PrimaryReflectionsComplexTest()
         {
              
             AS.Wall.Material mat = AS.Wall.Material.OakWoodCarpeted;
             AS.Room room = new AS.Room();
+            room.FloorMaterial = AS.Wall.Material.Brick;
+            room.CeilingMaterial = AS.Wall.Material.OakWood;
+            room.CeilingHeight = 2;
             room.AddWall(new AS.Wall(0, 0, 4, 0, mat));
             room.AddWall(new AS.Wall(0, 0, 0, 10, mat));
             room.AddWall(new AS.Wall(4, 0, 4, 10, mat));
             room.AddWall(new AS.Wall(0, 10, 4, 10, mat));
             AS.SoundPoint source = new AS.SoundPoint(2, 1);
-            source.Sound = AS.Sound.GetSoundFromWav(@"D:\Whistling.wav");
+            source.Sound = AS.Sound.GetSoundFromWav(@"D:\fromWar.wav");
             room.AddSource(source);
             room.AddListener(new AS.ListenerPoint(1, 8,new AS.Line(0,0,-1,0),AS.ListenerPoint.Cardioid));
             room.AddListener(new AS.ListenerPoint(3, 8, new AS.Line(0,0,1,0),AS.ListenerPoint.Cardioid ));

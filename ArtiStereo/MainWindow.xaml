@@ -37,8 +37,8 @@
                             <MenuItem Header="Save Sound Result file" Name="SoundSaveMenuItem" Click="SoundSaveMenuItem_Click" IsEnabled="False"></MenuItem>
                         </MenuItem>
                         <MenuItem Header="Edit">
-                            <MenuItem Header="Undo" Name="UndoMenuItem" Click="UndoMenuItem_Click"></MenuItem>
-                            <MenuItem Header="Redo" Name="RedoMenuItem" Click="RedoMenuItem_Click"></MenuItem>
+                            <MenuItem Header="Undo" Name="UndoMenuItem" Click="UndoMenuItem_Click" IsEnabled="False"></MenuItem>
+                            <MenuItem Header="Redo" Name="RedoMenuItem" Click="RedoMenuItem_Click" IsEnabled="False"></MenuItem>
                             <Separator/>
                             <MenuItem Header="Clear Workplace" Name ="ClearMenuItem" Click="ClearMenuItem_Click"></MenuItem>
                         </MenuItem>
@@ -71,6 +71,11 @@
                                         <ImageBrush Stretch="Uniform" ImageSource="Images/mic2.jpg"/>
                                     </ToggleButton.Background>
                                 </ToggleButton>
+                                <ToggleButton x:Name="MoveButton" Height="20" Width="20" ToolTip="Move Canvas" Margin="5" Style="{DynamicResource ToolButton}">
+                                    <ToggleButton.Background>
+                                        <ImageBrush Stretch="Uniform" ImageSource="Images/palm.png"/>
+                                    </ToggleButton.Background>
+                                </ToggleButton>
 
                             </StackPanel>
                         </Border>
@@ -87,7 +92,10 @@
                            <layoutToolkit:AccordionItem Header="Presets" Name="PresetsAccItem">
                                         <Grid Background="Beige" Name="PresetsGrid">
                                             <StackPanel Name="PresetsPanel">
-                                                <TextBlock FontSize="20" Text="Presets" TextAlignment="Center" Width="250"/>
+                                                <TextBlock FontSize="20" Text="Presets" TextAlignment="Center" Width="250" Margin="5"/>
+                                                <TextBlock FontSize="15" Text="Simple Room Forms" TextAlignment="Center" Width="250" Margin="5"/>
+                                                <ComboBox HorizontalAlignment="Stretch" Name="RoomPresetBox" Margin="5" SelectedIndex="0"/>
+                                                <Button Content="Apply Preset" Margin="5" Click="ApplyRoomPresetButton_Click"/>
                                             </StackPanel>
                                         </Grid>
                            </layoutToolkit:AccordionItem>

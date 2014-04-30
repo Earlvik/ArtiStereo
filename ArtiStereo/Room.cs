@@ -41,9 +41,83 @@ namespace Earlvik.ArtiStereo
 
 
         public double CeilingHeight { set; get; }
+        public Wall.Material CeilingMaterial { set; get; }
+        public Wall.Material FloorMaterial { set; get; }
         public List<ListenerPoint> Listeners { get { return mListeners; } }
         public List<SoundPoint> Sources { get { return mSources; } }
         public List<Wall> Walls { get { return mWalls; } }
+
+// ReSharper disable once InconsistentNaming
+        public enum RoomPreset {SmallSquare,BigSquare,SmallRect,TShape,LShape, Triangle,Trapezoid,Pentagon}
+
+        static public Room CreatePresetRoom(RoomPreset preset)
+        {
+            Room room = new Room();
+            Wall.Material mat = Wall.Material.OakWood;
+            room.CeilingHeight = 3;
+            room.CeilingMaterial = mat;
+            room.FloorMaterial = mat;
+            switch (preset)
+            {
+                case RoomPreset.SmallSquare:
+                    room.AddWall(new Wall(0, 0, 5, 0, mat));
+                    room.AddWall(new Wall(5, 0, 5, 5, mat));
+                    room.AddWall(new Wall(5, 5, 0, 5, mat));
+                    room.AddWall(new Wall(0, 5, 0, 0, mat));
+                    break;
+                case RoomPreset.BigSquare:
+                    room.AddWall(new Wall(0, 0, 15, 0, mat));
+                    room.AddWall(new Wall(5, 0, 15, 15, mat));
+                    room.AddWall(new Wall(15, 15, 0, 15, mat));
+                    room.AddWall(new Wall(0, 15, 0, 0, mat));
+                    break;
+                case RoomPreset.SmallRect:
+                    room.AddWall(new Wall(0, 0, 10, 0, mat));
+                    room.AddWall(new Wall(10, 0, 10, 5, mat));
+                    room.AddWall(new Wall(10, 5, 0, 5, mat));
+                    room.AddWall(new Wall(0, 5, 0, 0, mat));
+                    break;
+                case RoomPreset.TShape:
+                    room.AddWall(new Wall(0, 0, 3, 0, mat));
+                    room.AddWall(new Wall(3, 0, 3, 5, mat));
+                    room.AddWall(new Wall(3, 5, 9, 5, mat));
+                    room.AddWall(new Wall(9, 5, 9, 10, mat));
+                    room.AddWall(new Wall(9, 10, -6, 10, mat));
+                    room.AddWall(new Wall(-6, 10, -6, 5, mat));
+                    room.AddWall(new Wall(0, 5, 3, 5, mat));
+                    room.AddWall(new Wall(3, 5, 0, 0, mat));
+                    break;
+                case RoomPreset.LShape:
+                    room.AddWall(new Wall(0, 0, 3, 0, mat));
+                    room.AddWall(new Wall(3, 0, 3, 5, mat));
+                    room.AddWall(new Wall(3, 5, 9, 5, mat));
+                    room.AddWall(new Wall(9, 5, 9, 10, mat));
+                    room.AddWall(new Wall(9, 10, 0, 10, mat));
+                    room.AddWall(new Wall(0, 10, 0, 0, mat));
+                    break;
+                case RoomPreset.Triangle:
+                    room.AddWall(new Wall(0, 0, 7, 0, mat));
+                    room.AddWall(new Wall(7, 0, 0, 5, mat));
+                    room.AddWall(new Wall(0, 5, 0, 0, mat));
+                    break;
+                case RoomPreset.Trapezoid:
+                    room.AddWall(new Wall(0, 0, 10, 0, mat));
+                    room.AddWall(new Wall(10, 0, 7, 5, mat));
+                    room.AddWall(new Wall(7, 5, 2, 5, mat));
+                    room.AddWall(new Wall(2, 5, 0, 0, mat));
+                    break;
+                case RoomPreset.Pentagon:
+                    room.AddWall(new Wall(0, 0, 4, 0, mat));
+                    room.AddWall(new Wall(4, 0, 6, 4, mat));
+                    room.AddWall(new Wall(6, 4, 2, 6, mat));
+                    room.AddWall(new Wall(2, 6, -2, 4, mat));
+                    room.AddWall(new Wall(-2, 4, 0, 0, mat));
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException("preset");
+            }
+            return room;
+        }
 
         /// <summary>
         /// Adds new listener to the room
@@ -110,6 +184,7 @@ namespace Earlvik.ArtiStereo
                         listener.Sound.Add(source.Sound, 0, 0,
                             source.Sound.MillesecondsToSamples((int) time),percentReduction);
                     }
+
                     //Primary reflections
                     Sound snd = new Sound();
                     foreach (Wall wall in Walls)
@@ -135,11 +210,54 @@ namespace Earlvik.ArtiStereo
                         snd.SetVolume(reductionCoefft, 0);
                         //Frequency-based reduction
                         snd.SetVolume(0,wall.WallMaterial.Low,wall.WallMaterial.Medium,wall.WallMaterial.High);
-                        Double time = (Geometry.Distance(source, refPoint) + Geometry.Distance(refPoint, listener)) /
+                        double time = (Geometry.Distance(source, refPoint) + Geometry.Distance(refPoint, listener)) /
                                       airSSpeed * 1000;
                         listener.Sound.Add(snd, 0, 0, source.Sound.MillesecondsToSamples((int)time));
                         //snd = null;
                     }
+                    //Ceiling reflection
+                    snd.Copy(source.Sound);
+                    double directDistance = Geometry.Distance(listener, source);
+                    Wall ceiling = new Wall(0,0,directDistance,0,CeilingMaterial);
+                    Point listenerTemp = new Point(0,CeilingHeight-listener.Altitude);
+                    Point sourceImage = new Point(directDistance,source.Altitude-CeilingHeight);
+                    double ceilingImageDistance = Geometry.Distance(listenerTemp, sourceImage);
+                    double ceilingReductionCoefft = SoundReduction(ceilingImageDistance);
+                    double ceilingAngle = Math.PI/2 -
+                                          Geometry.Angle(ceiling, new Line(listenerTemp, sourceImage), false);
+                    ceilingReductionCoefft *= ceiling.ReflectionCoefft(ceilingAngle);
+                    if (listener.Directional)
+                    {
+                        ceilingReductionCoefft *= listener.GetReduction(new Line(source, listener));
+                    }
+                    snd.SetVolume(ceilingReductionCoefft,0);
+                    snd.SetVolume(0,CeilingMaterial.Low,CeilingMaterial.Medium,CeilingMaterial.High);
+                    double ceilingTime = ceilingImageDistance/airSSpeed*1000;
+                    listener.Sound.Add(snd, 0, 0, source.Sound.MillesecondsToSamples((int)ceilingTime));
+
+
+                    //Floor reflection
+                    if (source.Altitude > 0 && listener.Altitude > 0)
+                    {
+                        snd.Copy(source.Sound);
+                        Wall floor = new Wall(0, 0, directDistance, 0, FloorMaterial);
+                        listenerTemp = new Point(0, listener.Altitude);
+                        sourceImage = new Point(directDistance, -source.Altitude);
+                        double floorImageDistance = Geometry.Distance(listenerTemp, sourceImage);
+                        double floorReductionCoefft = SoundReduction(floorImageDistance);
+                        double floorAngle = Math.PI/2 -
+                                              Geometry.Angle(ceiling, new Line(listenerTemp, sourceImage), false);
+                        floorReductionCoefft *= floor.ReflectionCoefft(floorAngle);
+                        if (listener.Directional)
+                        {
+                            floorReductionCoefft *= listener.GetReduction(new Line(source, listener));
+                        }
+                        snd.SetVolume(floorReductionCoefft, 0);
+                        snd.SetVolume(0, FloorMaterial.Low, FloorMaterial.Medium, FloorMaterial.High);
+                        double floorTime = ceilingImageDistance/airSSpeed*1000;
+                        listener.Sound.Add(snd, 0, 0, source.Sound.MillesecondsToSamples((int) floorTime));
+                    }
+
                     //Secondary reflections
                     int imageDepth = 1;
                     var seenSources = new HashSet<Point>();
@@ -153,7 +271,7 @@ namespace Earlvik.ArtiStereo
                     foreach (Wall wall in Walls)
                     {
                         imageDepth = 1;
-                        Console.WriteLine("Picked base Wall "+wall);
+                        //Console.WriteLine("Picked base Wall "+wall);
                         RoomImage firstImage = new RoomImage(this,wall,source);
                         
                         foreach (Wall imageWall in firstImage.ImageWalls)
@@ -254,10 +372,19 @@ namespace Earlvik.ArtiStereo
         public bool IsValid()
         {
             if (mSources.Count == 0 || mListeners.Count == 0) return false;
+            if (Sources.Any(source => source.Altitude > CeilingHeight || source.Altitude < 0))
+            {
+                return false;
+            }
+            if (Listeners.Any(listener => listener.Altitude > CeilingHeight || listener.Altitude < 0))
+            {
+                return false;
+            }
             List<Point> surface = OuterSurface();
             for (int i = 0; i < surface.Count - 1; i++)
             {
                 Line line = new Line(surface[i],surface[i+1]);
+                if (line.Start == line.End) continue;
                 if (mWalls.All(wall => wall != line)) return false;
             }
             return true;
@@ -574,13 +701,13 @@ namespace Earlvik.ArtiStereo
     {
         [NonSerialized] private Sound mSound;
 
-        public SoundPoint(Point p) : base(p.X, p.Y)
+        public SoundPoint(Point p, double alt = 0) : base(p.X, p.Y)
         {
-           
+            Altitude = alt;
         }
-        public SoundPoint(double x, double y) : base(x, y)
+        public SoundPoint(double x, double y, double alt = 0) : base(x, y)
         {
-            
+            Altitude = alt;
         }
 
         public Sound Sound
@@ -588,6 +715,8 @@ namespace Earlvik.ArtiStereo
             set { mSound = value; }
             get { return mSound; }
         }
+
+        public double Altitude { set; get; }
     }
     /// <summary>
     /// Point with associated sound and microphone directional decrease function
@@ -611,14 +740,14 @@ namespace Earlvik.ArtiStereo
         private readonly DirectionalDecrease mDecreaseFunction;
         private readonly Line mDirection;
 
-        public ListenerPoint(Point p, Line direction, DirectionalDecrease decreaseFunction) : base(p)
+        public ListenerPoint(Point p, Line direction, DirectionalDecrease decreaseFunction, double alt = 0) : base(p,alt)
         {
             mDirection = direction;
             mDecreaseFunction = decreaseFunction;
             Directional = true;
 
         }
-        public ListenerPoint(double x, double y, Line direction, DirectionalDecrease decreaseFunction) : base(x, y)
+        public ListenerPoint(double x, double y, Line direction, DirectionalDecrease decreaseFunction, double alt = 0) : base(x, y,alt)
         {
             mDirection = direction;
             mDecreaseFunction = decreaseFunction;
@@ -631,8 +760,8 @@ namespace Earlvik.ArtiStereo
         {
             Directional = false;
         }
-        public ListenerPoint(double x, double y)
-            : base(x, y)
+        public ListenerPoint(double x, double y, double alt = 0)
+            : base(x, y, alt)
         {
             Directional = false;
         }
