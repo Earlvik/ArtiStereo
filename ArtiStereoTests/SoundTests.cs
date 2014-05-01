@@ -14,9 +14,9 @@ namespace ArtiStereoTests
         public void ReadWriteTest()
         {
         
-                AS.Sound sound = AS.Sound.GetSoundFromWav(@"D:\Whistling.wav");
+                AS.Sound sound = AS.Sound.GetSoundFromWav(@"D:\qwe.wav");
                // Assert.AreEqual(1,sound.Channels,"The number of channels was expected to be 1, but was: "+sound.Channels);
-                sound.CreateWav(@"D:\created.wav");
+                sound.CreateWav(@"D:\qweqwe.wav");
          
         }
 
@@ -62,7 +62,7 @@ namespace ArtiStereoTests
             room.AddWall(new AS.Wall(4, 0, 4, 10, mat));
             room.AddWall(new AS.Wall(0, 10, 4, 10, mat));
             AS.SoundPoint source = new AS.SoundPoint(2, 1);
-            source.Sound = AS.Sound.GetSoundFromWav(@"D:\fromWar.wav");
+            source.Sound = AS.Sound.GetSoundFromWav(@"D:\Whistling.wav");
             room.AddSource(source);
             room.AddListener(new AS.ListenerPoint(1, 8,new AS.Line(0,0,-1,0),AS.ListenerPoint.Cardioid));
             room.AddListener(new AS.ListenerPoint(3, 8, new AS.Line(0,0,1,0),AS.ListenerPoint.Cardioid ));
@@ -71,7 +71,7 @@ namespace ArtiStereoTests
             AS.Sound sound = new AS.Sound(2,source.Sound.DiscretionRate,source.Sound.BitsPerSample);
             sound.Add(room.Listeners[1].Sound,0,0,0);
             sound.Add(room.Listeners[0].Sound,0,1,0);
-            //sound.AdjustVolume(0.75);
+            sound.AdjustVolume(0.75);
             //sound.SetVolume(0.6,0);
             //sound.SetVolume(0.6,1);
             sound.CreateWav(@"D:\Result.wav");
@@ -82,13 +82,16 @@ namespace ArtiStereoTests
         {
             AS.Wall.Material mat = AS.Wall.Material.Brick;
             AS.Room room = new AS.Room();
+            room.FloorMaterial = AS.Wall.Material.Brick;
+            room.CeilingMaterial = AS.Wall.Material.OakWood;
+            room.CeilingHeight = 2;
             room.AddWall(new AS.Wall(0,5,10,0,mat));
             room.AddWall(new AS.Wall(10,0,20,5,mat));
             room.AddWall(new AS.Wall(20,5,20,45,mat));
             room.AddWall(new AS.Wall(20,45,0,45,mat));
             room.AddWall(new AS.Wall(0,45,0,5, mat));
             AS.SoundPoint source = new AS.SoundPoint(10,40);
-            source.Sound = AS.Sound.GetSoundFromWav(@"D:\sweep.wav");
+            source.Sound = AS.Sound.GetSoundFromWav(@"D:\blatt.wav");
             room.AddSource(source);
             room.AddListener(new AS.ListenerPoint(9,4));
             room.AddListener(new AS.ListenerPoint(11,4));
@@ -101,7 +104,8 @@ namespace ArtiStereoTests
             sound.AdjustVolume(0.75);
             //sound.SetVolume(0.6, 0);
             //sound.SetVolume(0.6, 1);
-            sound.CreateWav(@"D:\sweepR.wav");
+            sound.CreateWav(@"D:\blattR.wav");
+            Console.WriteLine(GC.GetTotalMemory(false)/(1024*1024)+"");
         }
 
         [TestMethod]

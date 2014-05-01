@@ -270,91 +270,10 @@ namespace Earlvik.ArtiStereo
                     }
                     foreach (Wall wall in Walls)
                     {
-                        imageDepth = 1;
-                        //Console.WriteLine("Picked base Wall "+wall);
-                        RoomImage firstImage = new RoomImage(this,wall,source);
-                        
-                        foreach (Wall imageWall in firstImage.ImageWalls)
+                        RoomImage image = new RoomImage(this, wall, source);
+                        for (int i = 1; i < image.ImageWalls.Length; i++)
                         {
-                            copy.AddWall(imageWall);
-                        }
-                        RoomImage curImage = new RoomImage(this, wall, source);
-                        bool flag = true;
-                        int callBack = 0;
-                        while (flag)
-                        {
-                            for (int i =1; i<curImage.ImageWalls.Length; i++)
-                            {
-                                if (!flag) break;
-                                imageDepth++;
-                                RoomImage newImage = new RoomImage(curImage,curImage.ImageWalls[i]);
-                               
-                                if (!seenSources.Contains(newImage.Source))
-                                {
-
-                                    seenSources.Add(newImage.Source);
-                                    foreach (Wall imageWall in newImage.ImageWalls)
-                                    {
-                                        copy.AddWall(imageWall);
-                                    }
-                                    snd.Copy(source.Sound);
-                                    double distance = newImage.GetTotalDistance(copy, listener);
-                                    double percentReduction = SoundReduction(distance);
-                                    double time = distance/airSSpeed*1000;
-
-                                    Console.WriteLine("SOUND");
-                                    //TODO: find intersecting walls and add sound
-                                    Line directLine = new Line(newImage.Source,listener);
-                                    if (listener.Directional)
-                                    {
-                                        percentReduction *= listener.GetReduction(directLine);
-                                    }
-                                    foreach (Wall wayWall in copy.IntersectingWalls(directLine))
-                                    {
-                                        double angle = Math.PI/2 - Geometry.Angle(directLine, wayWall, false);
-                                        percentReduction *= wayWall.ReflectionCoefft(angle);
-                                        snd.SetVolume(0,wayWall.WallMaterial.Low,wayWall.WallMaterial.Medium,wayWall.WallMaterial.High);
-                                    }
-                                    listener.Sound.Add(snd,0,0,source.Sound.MillesecondsToSamples((int)time),percentReduction);
-                                }
-                                if (imageDepth == imageMaxDepth)
-                                {
-                                    imageDepth--;
-                                    for (int j = 1; j < newImage.ImageWalls.Length; j++)
-                                    {
-                                        if (!mWalls.Contains(newImage.ImageWalls[j]))
-                                        {
-                                            copy.RemoveWall(newImage.ImageWalls[j]);
-                                        }
-                                    }
-                                    while (i == curImage.ImageWalls.Length - 1)
-                                    {
-                                        imageDepth--;
-                                        for (int j = 1; j < curImage.ImageWalls.Length; j++)
-                                        {
-                                            if (!mWalls.Contains(curImage.ImageWalls[j]))
-                                            {
-                                                copy.RemoveWall(curImage.ImageWalls[j]);
-                                            }
-                                        }
-                                        if (curImage.Parent == null)
-                                        {
-                                            flag = false;
-                                            break;
-                                        }
-                                        curImage = curImage.Parent;
-                                        i = callBack;
-                                    }
-                                }
-                                else
-                                {
-                                    callBack = i;
-                                    curImage = newImage;
-                                    break;
-                                    
-                                }
-
-                            }
+                            RecursiveImageCalculation(image,image.ImageWalls[i],imageDepth,seenSources,copy,listener,source,snd);
                         }
                     }
                 }
@@ -363,6 +282,58 @@ namespace Earlvik.ArtiStereo
                
 
             }
+        }
+
+        private void RecursiveImageCalculation(RoomImage image, Wall wall, int imageDepth, HashSet<Point> seenSources,Room copy,ListenerPoint listener,SoundPoint source, Sound snd)
+        {
+            imageDepth++;
+            double airSSpeed = Wall.Material.Air.SoundSpeed;
+            RoomImage newImage = new RoomImage(image,wall);
+            if (!seenSources.Contains(newImage.Source))
+            { 
+                seenSources.Add(newImage.Source);
+                foreach (Wall imageWall in newImage.ImageWalls)
+                {
+                    copy.AddWall(imageWall);
+                }
+                snd.Copy(source.Sound);
+                double distance = newImage.GetTotalDistance(copy, listener);
+                double percentReduction = SoundReduction(distance);
+                double time = distance / airSSpeed * 1000;
+
+                Console.WriteLine("SOUND");
+                //TODO: find intersecting walls and add sound
+                Line directLine = new Line(newImage.Source, listener);
+                if (listener.Directional)
+                {
+                    percentReduction *= listener.GetReduction(directLine);
+                }
+                foreach (Wall wayWall in copy.IntersectingWalls(directLine))
+                {
+                    double angle = Math.PI / 2 - Geometry.Angle(directLine, wayWall, false);
+                    percentReduction *= wayWall.ReflectionCoefft(angle);
+                    snd.SetVolume(0, wayWall.WallMaterial.Low, wayWall.WallMaterial.Medium,
+                        wayWall.WallMaterial.High);
+                }
+                listener.Sound.Add(snd, 0, 0, source.Sound.MillesecondsToSamples((int)time),
+                    percentReduction); 
+            }
+            if (imageDepth == imageMaxDepth)
+            {
+                for (int j = 1; j < newImage.ImageWalls.Length; j++)
+                {
+                    if (!mWalls.Contains(newImage.ImageWalls[j]))
+                    {
+                        copy.RemoveWall(newImage.ImageWalls[j]);
+                    }
+                }
+                return;
+            }
+            for (int i = 1; i < newImage.ImageWalls.Length;i++)
+            {
+                RecursiveImageCalculation(newImage,newImage.ImageWalls[i],imageDepth,seenSources,copy,listener,source,snd);
+            }
+
         }
 
         /// <summary>
@@ -619,7 +590,7 @@ namespace Earlvik.ArtiStereo
 
         protected bool Equals(Point other)
         {
-            return mX.Equals(other.mX) && mY.Equals(other.mY);
+            return Geometry.EqualDouble(mX,other.mX) && Geometry.EqualDouble(mY,other.mY);
         }
     }
     /// <summary>

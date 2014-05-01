@@ -128,7 +128,7 @@ namespace Earlvik.ArtiStereo
                         sound.mSound[k][j] = (float)curSound/sound.mMaxValue;
                     }
 
-                    pos += sound.mChannels*(sound.mBitsPerSample/8);
+                    pos += (sound.mBitsPerSample/8);
                 }
                 j++;
             }
