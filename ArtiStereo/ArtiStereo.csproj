@@ -36,8 +36,10 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="C1.WPF, Version=3.0.20141.391, Culture=neutral, PublicKeyToken=2aa4ec5576d6c3ce, processorArchitecture=MSIL" />
-    <Reference Include="C1.WPF.Extended, Version=3.0.20141.391, Culture=neutral, PublicKeyToken=2aa4ec5576d6c3ce, processorArchitecture=MSIL" />
+    <Reference Include="NMath, Version=5.3.0.12, Culture=neutral, PublicKeyToken=873235918a322639, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\..\..\..\..\..\Program Files\CenterSpace\NMath 5.3\Assemblies\NMath.dll</HintPath>
+    </Reference>
     <Reference Include="PresentationFramework.Aero" />
     <Reference Include="ReuxablesLegacy">
       <HintPath>..\..\..\..\..\Downloads\ReuxablesLegacy.dll</HintPath>
@@ -74,8 +76,14 @@
       <SubType>Designer</SubType>
     </ApplicationDefinition>
     <Compile Include="Geometry.cs" />
+    <Compile Include="Line.cs" />
+    <Compile Include="ListenerPoint.cs" />
+    <Compile Include="Point.cs" />
     <Compile Include="Room.cs" />
+    <Compile Include="RoomImage.cs" />
     <Compile Include="Sound.cs" />
+    <Compile Include="SoundPoint.cs" />
+    <Compile Include="Wall.cs" />
     <Page Include="MainWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>

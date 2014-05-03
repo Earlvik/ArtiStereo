@@ -5,7 +5,7 @@
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type ToggleButton}">
                     <Border x:Name="ButtonBorder" 
-                            CornerRadius="2,0,2,0"
+                            CornerRadius="5,0,5,0"
                             BorderThickness="1.5"
                             Background="{TemplateBinding Background}"
                             BorderBrush="Black"

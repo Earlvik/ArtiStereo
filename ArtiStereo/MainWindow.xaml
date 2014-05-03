@@ -22,9 +22,12 @@
                                         </Grid.ColumnDefinitions>
                                     </Grid>
                                 </ItemsPanelTemplate>
-                            </StatusBar.ItemsPanel>                            
+                            </StatusBar.ItemsPanel>       
+                            <StatusBarItem>
+                                <TextBlock Name="StatusBlock" FontWeight="ExtraBold" Margin="0,-2,0,0"></TextBlock>
+                            </StatusBarItem>
                             <StatusBarItem Grid.Column="1">
-                                <ProgressBar Name="SoundProgressBar" Value="50" Foreground="Beige" Height="10" Width="300" HorizontalAlignment="Stretch"/>
+                                <ProgressBar Name="SoundProgressBar" Value="50" Foreground="Beige" Height="10" Width="300" Visibility="Hidden"  HorizontalAlignment="Stretch"/>
                             </StatusBarItem>
                         </StatusBar>
                         <Menu  HorizontalAlignment="Stretch" DockPanel.Dock="Top">
@@ -103,7 +106,22 @@
                                         <Grid Background="Beige" Name="RecGrid">
                                             <StackPanel Name="RecPanel">
                                                 <TextBlock FontSize="20" Text="Record Options" TextAlignment="Center" Width="250"/>
-                                                <Button Name="RecordButton" Margin ="5" IsEnabled="False" Content="Start Record" HorizontalAlignment="Center" Click="RecordButton_Click"/>
+                                                <StackPanel Orientation="Horizontal" Margin="5">
+                                                    <TextBlock Text="Ceiling height"/>
+                                                    <TextBox Name ="CeilingHeightBox"  Width="20" TextChanged="CeilingHeightBox_OnTextChanged" LostFocus="CeilingHeightBox_OnLostFocus" Margin="5,0,0,0"></TextBox>
+                                                </StackPanel>
+                                                <StackPanel Orientation="Horizontal" Margin="5">
+                                                <TextBlock Text="Ceiling material"/>
+                                                <ComboBox Name ="CeilingMaterialBox" Margin="5,0,0,0" SelectionChanged="CeilingMaterialBox_OnSelectionChanged"></ComboBox>
+                                            </StackPanel>
+                                                <StackPanel Orientation="Horizontal" Margin="5">
+                                                <TextBlock Text="Floor material"/>
+                                                <ComboBox Name ="FloorMaterialBox" Margin="5,0,0,0" SelectionChanged="FloorMaterialBox_OnSelectionChanged"></ComboBox>
+                                            </StackPanel>
+                                                <TextBlock FontSize="14" HorizontalAlignment="Center" Text="Reflected sound volume"/>
+                                                <Slider x:Name="RefVolumeSlider" Maximum="3" Minimum="0.1" IsSnapToTickEnabled="True" TickFrequency="0.1" Value="1" ValueChanged="RefVolumeSlider_OnValueChanged"/>
+                                                <TextBlock FontSize="10" HorizontalAlignment="Center" Text="{Binding Value, ElementName=RefVolumeSlider}"/>
+                                            <Button Name="RecordButton" Margin ="5" IsEnabled="False" Content="Start Record" HorizontalAlignment="Center" Click="RecordButton_Click"/>
                                             </StackPanel>
                                         </Grid>
                                     </layoutToolkit:AccordionItem>
@@ -117,7 +135,7 @@
                                     Opacity="1"
                                     BlurRadius="5"/>
                             </Border.Effect>
-                            <Canvas Name="RoomCanvas"  SizeChanged="RoomCanvas_SizeChanged" ClipToBounds="True" MouseUp="RoomCanvas_MouseUp" Background="Ivory" MouseDown="RoomCanvas_MouseDown" MouseMove="RoomCanvas_MouseMove" >
+                            <Canvas Name="RoomCanvas"  SizeChanged="RoomCanvas_SizeChanged" ClipToBounds="True" MouseUp="RoomCanvas_MouseUp" Background="Ivory" MouseDown="RoomCanvas_MouseDown" MouseMove="RoomCanvas_MouseMove" Margin="0,1,0,-1" >
                                 
                             </Canvas>
                         </Border>

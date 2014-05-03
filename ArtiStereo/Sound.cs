@@ -2,6 +2,7 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using CenterSpace.NMath.Core;
 
 namespace Earlvik.ArtiStereo
 {
@@ -29,6 +30,19 @@ namespace Earlvik.ArtiStereo
         private int mMaxValue = 32767;
         private const int max16Bit = 32767;
         private float[][] mSound;
+
+        public enum Channel
+        {
+            FrontLeft,
+            FrontRight,
+            FrontCenter,
+            Lowfrequency,
+            BackLeft,
+            BackRight,
+            FrontLeftOfCenter,
+            FrontRightOfCenter,
+            BackCenter,
+        }
 
         public Sound()
         {
@@ -119,7 +133,9 @@ namespace Earlvik.ArtiStereo
                         int bytesNum = sound.mBitsPerSample/8;
                         for (int i = 0; i < bytesNum; i++)
                         {
-                            curSound += bytes[pos + i]*(int)Math.Pow(256, bytesNum - i - 1);
+                            byte nextByte = bytes[pos + i];
+                            nextByte <<= 8*i;
+                            curSound |= nextByte;
                         }
                         if (curSound > sound.mMaxValue + 1)
                         {
@@ -170,7 +186,7 @@ namespace Earlvik.ArtiStereo
             if (channelFrom > sound.mChannels || channelFrom<0) throw new ArgumentException("Channel number invalid");
             if(mDescretionRate != sound.mDescretionRate) throw new ArgumentException("different discretion rates");
             
-            
+            if(mSound[channelTo] == null) mSound[channelTo] = new float[0];
             float[] fromSound = sound.mSound[channelFrom];
             float[] temp = new float[Math.Max(mSound[channelTo].Length, offset + fromSound.Length)];
             for (int i = 0; i < mSound[channelTo].Length; i++)
@@ -344,8 +360,6 @@ namespace Earlvik.ArtiStereo
             data[32] = (byte)(blockAlign%256);
             data[33] = (byte) (blockAlign/256);
             //bitsPerSample
-            //data[34] = 0x10; 
-            //data[35] = 0;
             IntToBytes(mBitsPerSample,out data[34],out data[35]);
             //DATA word
             data[36] = 0x64;
@@ -377,8 +391,6 @@ namespace Earlvik.ArtiStereo
                         if (bytesPerSample == 2)
                         {
                             int sample = (int) Math.Round(mSound[j][pos]*mMaxValue);
-                            // if (sample > mMaxValue) sample = mMaxValue;
-                            // if (sample < -mMaxValue) sample = -mMaxValue;
                             IntToBytes(sample, out data[i], out data[i + 1]);
                         }
                         else
@@ -393,8 +405,7 @@ namespace Earlvik.ArtiStereo
                             }
                             for (int k = 0; k < bytesPerSample; k++)
                             {
-                                data[i + k] = (byte) ((sample%Math.Pow(256, bytesPerSample - k)) -
-                                                      (sample%Math.Pow(256, bytesPerSample - k-1)));
+                                data[i + k] = (byte) Math.Floor((sample%Math.Pow(256, k + 1))/Math.Pow(256,k));
                             }
                         }
 
@@ -538,6 +549,15 @@ namespace Earlvik.ArtiStereo
         private double PercentToDeciBell(double percent)
         {
             return 20*Math.Log10(percent);
+        }
+
+        public void Convolve(Sound kernel,int channelTo, int channelFrom)
+        {
+            FloatVector kernelVector = new FloatVector(kernel.mSound[channelFrom]);
+            FloatVector dataVector = new FloatVector(mSound[channelTo]);
+            Float1DConvolution convolution = new Float1DConvolution(kernelVector,dataVector.Length);
+            FloatVector result = convolution.Convolve(dataVector);
+            mSound[channelTo] = result.ToArray();
         }
     }
 }

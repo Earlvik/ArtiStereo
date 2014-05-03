@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Runtime.Serialization.Formatters.Binary;
@@ -26,6 +27,7 @@ namespace Earlvik.ArtiStereo
         const int buttonNumber=5;
 // ReSharper disable once InconsistentNaming
         int pixelPerMeter = 40;
+        private double reflectedVolume = 1;
         private const int minPixelPerMeter = 5;
         private const int maxPixelPerMeter = 320;
         private const int rightPanelWidth = 250;
@@ -74,6 +76,7 @@ namespace Earlvik.ArtiStereo
             mRoom.CeilingHeight = 2;
             mRoom.CeilingMaterial = Wall.Material.Brick;
             mRoom.FloorMaterial =Wall.Material.Brick;
+            
             //--------------------TESTING---TESTING---TESTING----------------
             mRoom.AddWall(new Wall(2,2,7,2,Wall.MaterialPreset.Glass));
             mRoom.AddWall(new Wall(2,4,7,4,Wall.MaterialPreset.Brick));
@@ -87,7 +90,11 @@ namespace Earlvik.ArtiStereo
             {
                 DrawRoom();
                 RoomPresetBox.ItemsSource = Enum.GetNames(typeof (Room.RoomPreset));
-
+                CeilingHeightBox.Text = mRoom.CeilingHeight + "";
+                CeilingMaterialBox.ItemsSource = Enum.GetValues(typeof(Wall.MaterialPreset));
+                CeilingMaterialBox.SelectedItem = Wall.GetPreset(mRoom.CeilingMaterial);
+                FloorMaterialBox.ItemsSource = Enum.GetValues(typeof (Wall.MaterialPreset));
+                FloorMaterialBox.SelectedItem = Wall.GetPreset(mRoom.FloorMaterial);
             };
             
 
@@ -108,7 +115,11 @@ namespace Earlvik.ArtiStereo
             ((TextBlock) PropsPanel.Children[0]).Text = "Properties";
             PropsPanel.Children.RemoveRange(1, PropsPanel.Children.Count - 1);
             mRoom = new Room();
+            mRoom.CeilingHeight = 2;
+            mRoom.CeilingMaterial = Wall.Material.Brick;
+            mRoom.FloorMaterial = Wall.Material.Brick;
             mSelectedRoomObject = null;
+            
             mMarkers.Clear();
             foreach (MouseButtonEventHandler handler in mCanvasMousehandlers)
             {
@@ -119,13 +130,27 @@ namespace Earlvik.ArtiStereo
             DrawRoom();
         }
 
+        private void CheckRoom()
+        {
+            if (!mRoom.IsValid())
+            {
+                StatusBlock.Foreground = Brushes.Red;
+                StatusBlock.Text = "Room is invalid. Check its insularity, number of sources and listeners";
+            }
+            else
+            {
+                StatusBlock.Foreground = Brushes.DarkGreen;
+                StatusBlock.Text = "Room is valid";
+            }
+        }
+
         /// <summary>
         /// Method of repainting room objects on canvas based on mRoom objects
         /// </summary>
         private void DrawRoom()
         {
+            CheckRoom();
             RoomCanvas.Children.Clear();
-
             //==================Grid=============================
             const double dx = 20;
             const double dy = 20;
@@ -342,24 +367,41 @@ namespace Earlvik.ArtiStereo
         {
             if (!mRoom.IsValid())
             {
-                MessageBox.Show(this, "Room is invalid, it should be closed by walls");
+                MessageBox.Show(this, "Room is invalid, check help for further instructions");
                 return;
             }
             try
             {
-                ListenerPoint left = mRoom.Listeners[0];
-                ListenerPoint right = mRoom.Listeners[0];
-                for (int i = 0; i < mRoom.Listeners.Count; i++)
+                BackgroundWorker worker = new BackgroundWorker();
+                RecordButton.IsEnabled = false;
+                SoundProgressBar.Visibility = Visibility.Visible;
+                SoundProgressBar.Value = 0;
+                SoundProgressBar.Maximum = mRoom.Sources.Count*mRoom.Listeners.Count*(mRoom.Walls.Count*2+1)+2;
+                worker.WorkerReportsProgress = true;
+                int num = 0;
+                EventHandler reporter= delegate
                 {
-                    if (left.X > mRoom.Listeners[i].X) left = mRoom.Listeners[i];
-                    if (right.X < mRoom.Listeners[i].X) right = mRoom.Listeners[i];
-                }
-                mRoom.CalculateSound();
-                mResultSound = new Sound(mRoom.Listeners.Count, mBaseSound.DiscretionRate, mBaseSound.BitsPerSample);
-                mResultSound.Add(left.Sound, 0, 0, 0);
-                mResultSound.Add(right.Sound, 0, 1, 0);
-                mResultSound.AdjustVolume(0.75);
-                SoundSaveMenuItem.IsEnabled = true;
+                    worker.ReportProgress(num++);
+                };
+                mRoom.CalculationProgress += reporter;
+                worker.DoWork += delegate
+                {
+                    mRoom.CalculateSound(reflectedVolume);
+                };
+                worker.RunWorkerCompleted += delegate
+                {
+                    mResultSound = mRoom.GetSoundFromListeners();
+                    mResultSound.AdjustVolume(0.75);
+                    SoundSaveMenuItem.IsEnabled = true;
+                    RecordButton.IsEnabled = true;
+                    mRoom.CalculationProgress -= reporter;
+                    SoundProgressBar.Visibility = Visibility.Hidden;
+                };
+                worker.ProgressChanged += (obj,args)=>
+                {
+                    SoundProgressBar.Value++;
+                };
+                worker.RunWorkerAsync();
             }
             catch (Exception exception)
             {
@@ -696,6 +738,7 @@ namespace Earlvik.ArtiStereo
                     break;
                 }
             }
+            
             DrawRoom();
         }
 
@@ -792,6 +835,7 @@ namespace Earlvik.ArtiStereo
                 {
                     source.Sound = mBaseSound;
                 }
+                DrawRoom();
             }
         }
 
@@ -884,6 +928,15 @@ namespace Earlvik.ArtiStereo
             locationPanel.Children.Add(ybox);
             PropsPanel.Children.Add(locationPanel);
 
+            StackPanel channelPanel = new StackPanel {Orientation = Orientation.Horizontal, Width = rightPanelWidth};
+            TextBlock channelBlock = new TextBlock{FontSize = 14, Text = "Channel",Margin = new Thickness(5,5,5,0)};
+            ComboBox channelBox = new ComboBox{Margin = new Thickness(5,5,5,5)};
+            channelBox.ItemsSource = Enum.GetValues(typeof(Sound.Channel));
+            channelBox.SelectedItem = listener.Channel;
+            channelPanel.Children.Add(channelBlock);
+            channelPanel.Children.Add(channelBox);
+            PropsPanel.Children.Add(channelPanel);
+
             CheckBox directional = new CheckBox{Width = rightPanelWidth, Content = "Directional", IsChecked = listener.Directional};
             PropsPanel.Children.Add(directional);
             TextBox xdirbox = null;
@@ -903,6 +956,16 @@ namespace Earlvik.ArtiStereo
                 directionPanel.Children.Add(ydirbox);
                 PropsPanel.Children.Add(directionPanel);
             }
+
+            channelBox.SelectionChanged += (sender, args) =>
+            {
+                if (listener.Channel != (Sound.Channel)channelBox.SelectedItem && mRoom.Listeners.Any(x => x.Channel == (Sound.Channel)channelBox.SelectedItem))
+                {
+                    channelBox.SelectedItem = listener.Channel;
+                }
+                listener.Channel = (Sound.Channel) channelBox.SelectedItem;
+
+            };
 
             directional.Checked += delegate
             {
@@ -1407,6 +1470,9 @@ namespace Earlvik.ArtiStereo
             Room.RoomPreset preset;
             if (!Enum.TryParse(RoomPresetBox.SelectedItem.ToString(), out preset)) return;
             mRoom = Room.CreatePresetRoom(preset);
+            mXDrawOffset = 0;
+            mYDrawOffset = 0;
+            
             ((TextBlock)PropsPanel.Children[0]).Text = "Properties";
             PropsPanel.Children.RemoveRange(1, PropsPanel.Children.Count - 1);
             mSelectedRoomObject = null;
@@ -1418,6 +1484,33 @@ namespace Earlvik.ArtiStereo
             RoomCanvas.MouseUp -= RoomCanvas_MouseUp;
             RoomCanvas.MouseUp += RoomCanvas_MouseUp;
             DrawRoom();
+        }
+
+        private void CeilingHeightBox_OnTextChanged(object sender, TextChangedEventArgs e)
+        {
+            double newValue;
+            if (!double.TryParse(CeilingHeightBox.Text, out newValue)) return;
+            mRoom.CeilingHeight = newValue;
+        }
+
+        private void CeilingHeightBox_OnLostFocus(object sender, RoutedEventArgs e)
+        {
+            CeilingHeightBox.Text = mRoom.CeilingHeight+"";
+        }
+
+        private void CeilingMaterialBox_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            mRoom.CeilingMaterial = Wall.GetMaterial((Wall.MaterialPreset) CeilingMaterialBox.SelectedItem);
+        }
+
+        private void FloorMaterialBox_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            mRoom.FloorMaterial = Wall.GetMaterial((Wall.MaterialPreset)FloorMaterialBox.SelectedItem);
+        }
+
+        private void RefVolumeSlider_OnValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            reflectedVolume = e.NewValue;
         }
     }
 }
