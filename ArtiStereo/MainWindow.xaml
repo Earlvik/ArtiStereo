@@ -1,58 +1,59 @@
-﻿<Window  x:Class="Earlvik.ArtiStereo.MainWindow"
+﻿<Window
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:layoutToolkit="clr-namespace:System.Windows.Controls;assembly=System.Windows.Controls.Layout.Toolkit"
+        x:Class="Earlvik.ArtiStereo.MainWindow"
         Title="ArtiStereo" Height="600" Width="1054" WindowStartupLocation="CenterScreen"
-        MinWidth="500" MinHeight="500" SizeChanged="Window_SizeChanged">
-    
+        MinWidth="500" MinHeight="500" SizeChanged="Window_SizeChanged" Icon="Images/icon.ico" x:Name="Window">
+
     <Grid>
-        <TabControl HorizontalAlignment="Stretch" Name="ASMainTab" VerticalAlignment="Stretch" UseLayoutRounding="False" >
-            <TabItem Header="Room Generator" Name="FirstTab">
-                
+        <TabControl HorizontalAlignment="Stretch" x:Name="ASMainTab" VerticalAlignment="Stretch" UseLayoutRounding="False" >
+            <TabItem Header="Room Generator" x:Name="FirstTab">
+
                 <Grid Background="DimGray">
-       
-                    <DockPanel LastChildFill="True" Name="RoomDock">
+
+                    <DockPanel LastChildFill="True" x:Name="RoomDock">
                         <StatusBar DockPanel.Dock="Bottom" HorizontalAlignment="Stretch" Height="20" >
                             <StatusBar.ItemsPanel>
                                 <ItemsPanelTemplate>
                                     <Grid>
                                         <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"></ColumnDefinition>
-                                            <ColumnDefinition Width="*"></ColumnDefinition>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
                                     </Grid>
                                 </ItemsPanelTemplate>
-                            </StatusBar.ItemsPanel>       
+                            </StatusBar.ItemsPanel>
                             <StatusBarItem>
-                                <TextBlock Name="StatusBlock" FontWeight="ExtraBold" Margin="0,-2,0,0"></TextBlock>
+                                <TextBlock x:Name="StatusBlock" FontWeight="ExtraBold" Margin="0,-2,0,0"/>
                             </StatusBarItem>
                             <StatusBarItem Grid.Column="1">
-                                <ProgressBar Name="SoundProgressBar" Value="50" Foreground="Beige" Height="10" Width="300" Visibility="Hidden"  HorizontalAlignment="Stretch"/>
+                                <ProgressBar x:Name="SoundProgressBar" Value="50" Foreground="Beige" Height="10" Width="300" Visibility="Hidden"  HorizontalAlignment="Stretch"/>
                             </StatusBarItem>
                         </StatusBar>
                         <Menu  HorizontalAlignment="Stretch" DockPanel.Dock="Top">
-                        <MenuItem Header="File">
-                            <MenuItem Header="Open Room file" Name="RoomOpenMenuItem" Click="RoomOpenMenuItem_Click"></MenuItem>
-                            
-                                <MenuItem Header="Save Room file" Name="RoomSaveMenuItem" Click="RoomSaveMenuItem_Click"></MenuItem>
-                            <Separator />
-                            <MenuItem Header="Open Sound file" Name="SoundOpenMenuItem" Click="SoundOpenMenuItem_Click"></MenuItem>
-                            <MenuItem Header="Save Sound Result file" Name="SoundSaveMenuItem" Click="SoundSaveMenuItem_Click" IsEnabled="False"></MenuItem>
-                        </MenuItem>
-                        <MenuItem Header="Edit">
-                            <MenuItem Header="Undo" Name="UndoMenuItem" Click="UndoMenuItem_Click" IsEnabled="False"></MenuItem>
-                            <MenuItem Header="Redo" Name="RedoMenuItem" Click="RedoMenuItem_Click" IsEnabled="False"></MenuItem>
-                            <Separator/>
-                            <MenuItem Header="Clear Workplace" Name ="ClearMenuItem" Click="ClearMenuItem_Click"></MenuItem>
-                        </MenuItem>
+                            <MenuItem Header="File">
+                                <MenuItem Header="Open Room file" x:Name="RoomOpenMenuItem" Click="RoomOpenMenuItem_Click"/>
+
+                                <MenuItem Header="Save Room file" x:Name="RoomSaveMenuItem" Click="RoomSaveMenuItem_Click"/>
+                                <Separator />
+                                <MenuItem Header="Open Sound file" x:Name="SoundOpenMenuItem" Click="SoundOpenMenuItem_Click"/>
+                                <MenuItem Header="Save Sound Result file" x:Name="SoundSaveMenuItem" Click="SoundSaveMenuItem_Click" IsEnabled="False"/>
+                            </MenuItem>
+                            <MenuItem Header="Edit">
+                                <MenuItem Header="Undo" x:Name="UndoMenuItem" Click="UndoMenuItem_Click" IsEnabled="False"/>
+                                <MenuItem Header="Redo" x:Name="RedoMenuItem" Click="RedoMenuItem_Click" IsEnabled="False"/>
+                                <Separator/>
+                                <MenuItem Header="Clear Workplace" x:Name ="ClearMenuItem" Click="ClearMenuItem_Click"/>
+                            </MenuItem>
                             <MenuItem Header="Help">
-                            <MenuItem Header="Manual" Name="ManMenuItem"></MenuItem>
-                            <MenuItem Header="About" Name="AboutMenuItem"></MenuItem>
-                        </MenuItem>
-                    </Menu>
+                                <MenuItem Header="Manual" x:Name="ManMenuItem"/>
+                                <MenuItem Header="About" x:Name="AboutMenuItem" Click="AboutMenuItem_Click"/>
+                            </MenuItem>
+                        </Menu>
                         <Border CornerRadius="6" BorderBrush="CadetBlue" Background="Lavender" BorderThickness="2" VerticalAlignment="Top">
                             <StackPanel DockPanel.Dock="Left" Width="30">
-                         
+
                                 <ToggleButton x:Name="RectButton" Height="20" Width="20" HorizontalAlignment="Left" ToolTip="Rectangle" Margin="5" Style="{DynamicResource ToolButton}">
                                     <ToggleButton.Background>
                                         <ImageBrush ImageSource="Images/Rect.jpg" Stretch="Uniform"/>
@@ -83,70 +84,104 @@
                             </StackPanel>
                         </Border>
                         <StackPanel VerticalAlignment="Top" HorizontalAlignment="Right" DockPanel.Dock="Right" Width="250">
-                     <Border CornerRadius="6" BorderBrush="CadetBlue" Background="Lavender" BorderThickness="3">
-                       <layoutToolkit:Accordion Name="Accordion" HorizontalAlignment="Stretch">
-                           <layoutToolkit:AccordionItem Header="Properties" Name ="PropsAccItem">
-                                        <Grid Background="Beige" Name="PropsGrid" Height ="350">
-                                            <StackPanel Name="PropsPanel" Height ="350">
+                            <Border CornerRadius="6" BorderBrush="CadetBlue" Background="Lavender" BorderThickness="3">
+                                <layoutToolkit:Accordion x:Name="Accordion" HorizontalAlignment="Stretch">
+                                    <layoutToolkit:AccordionItem Header="Properties" x:Name ="PropsAccItem">
+                                        <Grid Background="Beige" x:Name="PropsGrid" Height ="350">
+                                            <StackPanel x:Name="PropsPanel" Height ="350">
                                                 <TextBlock FontSize="20" Text="Properties" TextAlignment="Center" Width="250"/>
                                             </StackPanel>
                                         </Grid>
                                     </layoutToolkit:AccordionItem>
-                           <layoutToolkit:AccordionItem Header="Presets" Name="PresetsAccItem">
-                                        <Grid Background="Beige" Name="PresetsGrid">
-                                            <StackPanel Name="PresetsPanel">
+                                    <layoutToolkit:AccordionItem Header="Presets" x:Name="PresetsAccItem">
+                                        <Grid Background="Beige" x:Name="PresetsGrid">
+                                            <StackPanel x:Name="PresetsPanel">
                                                 <TextBlock FontSize="20" Text="Presets" TextAlignment="Center" Width="250" Margin="5"/>
                                                 <TextBlock FontSize="15" Text="Simple Room Forms" TextAlignment="Center" Width="250" Margin="5"/>
-                                                <ComboBox HorizontalAlignment="Stretch" Name="RoomPresetBox" Margin="5" SelectedIndex="0"/>
+                                                <ComboBox HorizontalAlignment="Stretch" x:Name="RoomPresetBox" Margin="5" SelectedIndex="0"/>
                                                 <Button Content="Apply Preset" Margin="5" Click="ApplyRoomPresetButton_Click"/>
                                             </StackPanel>
                                         </Grid>
-                           </layoutToolkit:AccordionItem>
+                                    </layoutToolkit:AccordionItem>
                                     <layoutToolkit:AccordionItem Header="Record Options">
-                                        <Grid Background="Beige" Name="RecGrid">
-                                            <StackPanel Name="RecPanel">
+                                        <Grid Background="Beige" x:Name="RecGrid">
+                                            <StackPanel x:Name="RecPanel">
                                                 <TextBlock FontSize="20" Text="Record Options" TextAlignment="Center" Width="250"/>
                                                 <StackPanel Orientation="Horizontal" Margin="5">
                                                     <TextBlock Text="Ceiling height"/>
-                                                    <TextBox Name ="CeilingHeightBox"  Width="20" TextChanged="CeilingHeightBox_OnTextChanged" LostFocus="CeilingHeightBox_OnLostFocus" Margin="5,0,0,0"></TextBox>
+                                                    <TextBox x:Name ="CeilingHeightBox"  Width="20" TextChanged="CeilingHeightBox_OnTextChanged" LostFocus="CeilingHeightBox_OnLostFocus" Margin="5,0,0,0"/>
                                                 </StackPanel>
                                                 <StackPanel Orientation="Horizontal" Margin="5">
-                                                <TextBlock Text="Ceiling material"/>
-                                                <ComboBox Name ="CeilingMaterialBox" Margin="5,0,0,0" SelectionChanged="CeilingMaterialBox_OnSelectionChanged"></ComboBox>
-                                            </StackPanel>
+                                                    <TextBlock Text="Ceiling material"/>
+                                                    <ComboBox x:Name ="CeilingMaterialBox" Margin="5,0,0,0" SelectionChanged="CeilingMaterialBox_OnSelectionChanged"/>
+                                                </StackPanel>
                                                 <StackPanel Orientation="Horizontal" Margin="5">
-                                                <TextBlock Text="Floor material"/>
-                                                <ComboBox Name ="FloorMaterialBox" Margin="5,0,0,0" SelectionChanged="FloorMaterialBox_OnSelectionChanged"></ComboBox>
-                                            </StackPanel>
+                                                    <TextBlock Text="Floor material"/>
+                                                    <ComboBox x:Name ="FloorMaterialBox" Margin="5,0,0,0" SelectionChanged="FloorMaterialBox_OnSelectionChanged"/>
+                                                </StackPanel>
                                                 <TextBlock FontSize="14" HorizontalAlignment="Center" Text="Reflected sound volume"/>
                                                 <Slider x:Name="RefVolumeSlider" Maximum="3" Minimum="0.1" IsSnapToTickEnabled="True" TickFrequency="0.1" Value="1" ValueChanged="RefVolumeSlider_OnValueChanged"/>
                                                 <TextBlock FontSize="10" HorizontalAlignment="Center" Text="{Binding Value, ElementName=RefVolumeSlider}"/>
-                                            <Button Name="RecordButton" Margin ="5" IsEnabled="False" Content="Start Record" HorizontalAlignment="Center" Click="RecordButton_Click"/>
+                                                <TextBlock FontSize="14" HorizontalAlignment="Center" Text="Depth of reflections"/>
+                                                <Slider x:Name="RefDepthSlider" Maximum="5" Minimum="2" IsSnapToTickEnabled="True" Value="3" ValueChanged="RefDepthSlider_OnValueChanged"/>
+                                                <TextBlock FontSize="10" HorizontalAlignment="Center" Text="{Binding Value, ElementName=RefDepthSlider}"/>
+                                                <TextBlock FontSize="12" HorizontalAlignment="Center" Text="No sound file" x:Name="FileNameBlock"/>
+                                                <Button x:Name="RecordButton" Margin ="5" IsEnabled="False" Content="Start Record" HorizontalAlignment="Center" Click="RecordButton_Click"/>
+                                                <Button Name="CancelButton" Margin="5" IsEnabled="False" Content="Cancel Record" HorizontalAlignment="Center" Click="CancelButton_OnClick"/> 
                                             </StackPanel>
                                         </Grid>
                                     </layoutToolkit:AccordionItem>
-                                </layoutToolkit:Accordion>  
-                     </Border>   
-                    </StackPanel>
+                                </layoutToolkit:Accordion>
+                            </Border>
+                        </StackPanel>
                         <Border BorderThickness="1" BorderBrush="CadetBlue" Margin="2" MinHeight="200" MinWidth="300">
                             <Border.Effect>
                                 <DropShadowEffect ShadowDepth="0"
-                                    Color="CadetBlue"
-                                    Opacity="1"
-                                    BlurRadius="5"/>
+									Color="CadetBlue"
+									Opacity="1"
+									BlurRadius="5"/>
                             </Border.Effect>
-                            <Canvas Name="RoomCanvas"  SizeChanged="RoomCanvas_SizeChanged" ClipToBounds="True" MouseUp="RoomCanvas_MouseUp" Background="Ivory" MouseDown="RoomCanvas_MouseDown" MouseMove="RoomCanvas_MouseMove" Margin="0,1,0,-1" >
-                                
-                            </Canvas>
+                            <Canvas x:Name="RoomCanvas"  SizeChanged="RoomCanvas_SizeChanged" ClipToBounds="True" MouseUp="RoomCanvas_MouseUp" Background="Ivory" MouseDown="RoomCanvas_MouseDown" MouseMove="RoomCanvas_MouseMove" Margin="0,1,0,-1" />
                         </Border>
 
                     </DockPanel>
                 </Grid>
             </TabItem>
-            <TabItem Header="Sound Manager" Name="SecondTab">
-                
+            <TabItem Header="Convolution Reverb" x:Name="SecondTab">
+                <Grid>
+                    <Border BorderBrush="CadetBlue" BorderThickness="3" CornerRadius="5" Margin="104,83,96,153">
+                        <StackPanel Orientation="Vertical">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock TextWrapping="Wrap" Text="Input Sound File: " Margin="30" Height="20"/>
+                                <TextBlock x:Name="BaseSoundBlock" MinWidth="100" Height="30" Margin="0,5,0,0" Text="No file loaded"/>
+                                <Button Content="Open new file" Height="20" x:Name="OpenBaseSoundButton" Click="OpenBaseSoundButton_Click"/>
+
+                                
+
+                            </StackPanel>
+                            <Separator/>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock TextWrapping="Wrap" Text="Input Impulse Response File: " Margin="30" Height="20"/>
+                                <TextBlock x:Name="KernelSoundBlock" MinWidth="100" Height="30" Margin="0,5,0,0" Text="No file loaded"/>
+                                <Button Content="Open new file" Height="20" x:Name="OpenKernelSoundButton" Click="OpenKernelSoundButton_Click"/>
+                                
+                            </StackPanel>
+                            <Separator/>
+                            <StackPanel Orientation="Horizontal">
+                               <Button Content="Start Convolution" Name="ConvolveButton" Margin="10" IsEnabled="False" Click="ConvolveButton_Click"/>
+                                <Button Content ="Save Result To a File" Name="SaveConvolvedButton" Margin="10" IsEnabled="False" Click="SaveConvolvedButton_Click"/>
+                                
+                                
+                            </StackPanel>
+                            <TextBlock Margin="3" FontWeight="SemiBold" Text="Select files for convolution reverb. Be careful, convolution reverb returns good results only if the sound loaded as impulse response is actually an IR"/>
+                            <TextBlock Name="ConvolutionStatusBlock" FontWeight="SemiBold" Margin="3" Foreground="Red" Text="Both files should be chosen"/>
+                        </StackPanel>
+
+                    </Border>
+                </Grid>
             </TabItem>
+
         </TabControl>
-        
+
     </Grid>
 </Window>

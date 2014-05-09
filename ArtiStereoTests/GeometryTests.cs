@@ -135,7 +135,9 @@ namespace ArtiStereoTests
             room.AddSource(new AS.SoundPoint(4,1));
             room.AddListener(new AS.ListenerPoint(2,4));
             room.AddListener(new AS.ListenerPoint(5,4));
-            Assert.IsTrue(room.IsValid(),"Room was invalid!");
+            room.Sources[0].Sound = AS.Sound.SimpleWave(100);
+            string message;
+            Assert.IsTrue(room.IsValid(out message),"Room was invalid! "+message);
         }
 
         [TestMethod]

@@ -11,6 +11,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
+using Gat.Controls;
 using Microsoft.Win32;
 
 namespace Earlvik.ArtiStereo
@@ -27,10 +28,11 @@ namespace Earlvik.ArtiStereo
         const int buttonNumber=5;
 // ReSharper disable once InconsistentNaming
         int pixelPerMeter = 40;
-        private double reflectedVolume = 1;
+        private double mReflectedVolume = 1;
         private const int minPixelPerMeter = 5;
         private const int maxPixelPerMeter = 320;
         private const int rightPanelWidth = 250;
+        private String filename;
         //List of handlers assigned to canvas mouseUp event
         readonly List<MouseButtonEventHandler> mCanvasMousehandlers = new List<MouseButtonEventHandler>();
         
@@ -41,11 +43,15 @@ namespace Earlvik.ArtiStereo
         private Sound mBaseSound;
         private int mChosenButton = -1;
         private Sound mResultSound;
+        private Sound mConvolveBaseSound;
+        private Sound mKernelSound;
+        private Sound mConvolveResultSound;
         private double mXDrawOffset = 0;
         private double mYDrawOffset = 0;
         //Room object
         Room mRoom;
         private IRoomObject mSelectedRoomObject;
+        private BackgroundWorker mReflectionWorker;
         private const double numFieldWidth = 40;
 
         public MainWindow()
@@ -77,15 +83,6 @@ namespace Earlvik.ArtiStereo
             mRoom.CeilingMaterial = Wall.Material.Brick;
             mRoom.FloorMaterial =Wall.Material.Brick;
             
-            //--------------------TESTING---TESTING---TESTING----------------
-            mRoom.AddWall(new Wall(2,2,7,2,Wall.MaterialPreset.Glass));
-            mRoom.AddWall(new Wall(2,4,7,4,Wall.MaterialPreset.Brick));
-            mRoom.AddListener(new ListenerPoint(6,6,new Line(0,0,1,-1),ListenerPoint.Cardioid ));
-            mRoom.AddSource(new SoundPoint(10,10,2));
-
-
-            
-            //---------------------------------------------------------------
             Loaded += delegate
             {
                 DrawRoom();
@@ -98,6 +95,12 @@ namespace Earlvik.ArtiStereo
             };
             
 
+        }
+
+        protected override void OnClosed(EventArgs e)
+        {
+            base.OnClosed(e);
+            Application.Current.Shutdown();
         }
 
         private void AddMarker(System.Windows.Point position)
@@ -132,10 +135,11 @@ namespace Earlvik.ArtiStereo
 
         private void CheckRoom()
         {
-            if (!mRoom.IsValid())
+            String message;
+            if (!mRoom.IsValid(out message))
             {
                 StatusBlock.Foreground = Brushes.Red;
-                StatusBlock.Text = "Room is invalid. Check its insularity, number of sources and listeners";
+                StatusBlock.Text = "Room is invalid. "+message;
             }
             else
             {
@@ -367,45 +371,111 @@ namespace Earlvik.ArtiStereo
         {
             if (!mRoom.IsValid())
             {
-                MessageBox.Show(this, "Room is invalid, check help for further instructions");
+                MessageBox.Show(this, "Room is invalid, check status bar for further instructions");
                 return;
             }
             try
             {
-                BackgroundWorker worker = new BackgroundWorker();
+                mReflectionWorker = new BackgroundWorker();
+                mReflectionWorker.WorkerSupportsCancellation = true;
                 RecordButton.IsEnabled = false;
+                for (int i = 0; i < buttonNumber - 1; i++)
+                {
+                    mToolButtons[i].IsChecked = false;
+                    mToolButtons[i].IsEnabled = false;
+                }
+                RoomOpenMenuItem.IsEnabled = false;
+                SoundOpenMenuItem.IsEnabled = false;
+                UndoMenuItem.IsEnabled = false;
+                RedoMenuItem.IsEnabled = false;
+                ClearMenuItem.IsEnabled = false;
+                PropsAccItem.IsEnabled = false;
+                PresetsAccItem.IsEnabled = false;
+                CeilingHeightBox.IsEnabled = false;
+                FloorMaterialBox.IsEnabled = false;
+                RefVolumeSlider.IsEnabled = false;
+                CancelButton.IsEnabled = true;
+
+                RoomCanvas.MouseUp -= RoomCanvas_MouseUp;
+                ((TextBlock)PropsPanel.Children[0]).Text = "Properties";
+                PropsPanel.Children.RemoveRange(1, PropsPanel.Children.Count - 1);
+                mSelectedRoomObject = null;
+                DrawRoom();
+
                 SoundProgressBar.Visibility = Visibility.Visible;
                 SoundProgressBar.Value = 0;
                 SoundProgressBar.Maximum = mRoom.Sources.Count*mRoom.Listeners.Count*(mRoom.Walls.Count*2+1)+2;
-                worker.WorkerReportsProgress = true;
+                mReflectionWorker.WorkerReportsProgress = true;
                 int num = 0;
                 EventHandler reporter= delegate
                 {
-                    worker.ReportProgress(num++);
+                    mReflectionWorker.ReportProgress(num++);
                 };
                 mRoom.CalculationProgress += reporter;
-                worker.DoWork += delegate
+                
+                mReflectionWorker.DoWork += delegate
                 {
-                    mRoom.CalculateSound(reflectedVolume);
+                    try
+                    {
+                        mRoom.CalculateSound(mReflectedVolume);
+                    }
+                    catch (Exception ex)
+                    {
+                        Dispatcher.Invoke((Action) delegate
+                        {
+                            if (CancelButton.IsEnabled)
+                            {
+                               MessageBox.Show(this, "Error occurred during recording process: " + ex.Message);
+                                throw ex;
+                            }
+
+                        });
+                    }
+                    
                 };
-                worker.RunWorkerCompleted += delegate
+                mReflectionWorker.RunWorkerCompleted += delegate
                 {
+                    if (!CancelButton.IsEnabled) return;
+                    CancelButton.IsEnabled = false;
                     mResultSound = mRoom.GetSoundFromListeners();
                     mResultSound.AdjustVolume(0.75);
-                    SoundSaveMenuItem.IsEnabled = true;
+                    if (!mReflectionWorker.CancellationPending)
+                    {
+                        SoundSaveMenuItem.IsEnabled = true;
+                    }
                     RecordButton.IsEnabled = true;
                     mRoom.CalculationProgress -= reporter;
                     SoundProgressBar.Visibility = Visibility.Hidden;
+                    for (int i = 0; i<buttonNumber-1;i++)
+                    {
+
+                        mToolButtons[i].IsEnabled = true;
+
+                    }
+                    RoomOpenMenuItem.IsEnabled = true;
+                    SoundOpenMenuItem.IsEnabled = true;
+                    UndoMenuItem.IsEnabled = true;
+                    RedoMenuItem.IsEnabled = true;
+                    ClearMenuItem.IsEnabled = true;
+                    PropsAccItem.IsEnabled = true;
+                    PresetsAccItem.IsEnabled = true;
+                    CeilingHeightBox.IsEnabled = true;
+                    FloorMaterialBox.IsEnabled = true;
+                    RefVolumeSlider.IsEnabled = true;
+                    RoomCanvas.MouseUp+=RoomCanvas_MouseUp;
+                    StatusBlock.Foreground=Brushes.DarkGreen;
+                    
+                    StatusBlock.Text = mReflectionWorker.CancellationPending?"Recording cancelled":"Recording successfully finished";
                 };
-                worker.ProgressChanged += (obj,args)=>
+                mReflectionWorker.ProgressChanged += (obj,args)=>
                 {
                     SoundProgressBar.Value++;
                 };
-                worker.RunWorkerAsync();
+                mReflectionWorker.RunWorkerAsync();
             }
             catch (Exception exception)
             {
-                MessageBox.Show(this, "Error ocured during recording process: " + exception.Message);
+                MessageBox.Show(this, "Error occurred during recording process: " + exception.Message);
             }
         }
 
@@ -752,6 +822,11 @@ namespace Earlvik.ArtiStereo
             OpenFileDialog dialog = new OpenFileDialog { CheckFileExists = true, Filter = "Serialized room files (*.asr)|*.asr" };
             if (dialog.ShowDialog(this) == true)
             {
+                if (!dialog.FileName.EndsWith(".asr"))
+                {
+                    MessageBox.Show(this, "Error occured during opening process: Wrong file format");
+                    return;
+                }
                 BinaryFormatter formatter = new BinaryFormatter();
                 using (FileStream stream = new FileStream(dialog.FileName, FileMode.Open))
                 {
@@ -828,13 +903,22 @@ namespace Earlvik.ArtiStereo
             bool? result = dialog.ShowDialog();
             if (result == true)
             {
-                mBaseSound = Sound.GetSoundFromWav(dialog.FileName);
+                try
+                {
+                    mBaseSound = Sound.GetSoundFromWav(dialog.FileName);
+                }
+                catch (Exception exception)
+                {
+                    MessageBox.Show("Error occured during opening: " + exception.Message);
+                    return;
+                }
                 RecordButton.IsEnabled = true;
                 MessageBox.Show("Successfully opened " + dialog.FileName,"Sound Open",MessageBoxButton.OK);
                 foreach (SoundPoint source in mRoom.Sources)
                 {
                     source.Sound = mBaseSound;
                 }
+                FileNameBlock.Text = "Source: "+dialog.SafeFileName;
                 DrawRoom();
             }
         }
@@ -846,7 +930,14 @@ namespace Earlvik.ArtiStereo
                 SaveFileDialog dialog = new SaveFileDialog { AddExtension = true, CheckPathExists = true, Filter = "Wave Sound Files (*.wav)|*.wav" };
                 if (dialog.ShowDialog(this) == true)
                 {
-                    mResultSound.CreateWav(dialog.FileName);
+                    try
+                    {
+                        mResultSound.CreateWav(dialog.FileName);
+                    }
+                    catch (Exception exception)
+                    {
+                        MessageBox.Show("Error occured during saving: " + exception.Message);
+                    }
                 }
             }
         }
@@ -927,7 +1018,12 @@ namespace Earlvik.ArtiStereo
             TextBox ybox = new TextBox{ FontSize = 10, Text = listener.Y + "", Width = numFieldWidth, TextAlignment = TextAlignment.Left };
             locationPanel.Children.Add(ybox);
             PropsPanel.Children.Add(locationPanel);
-
+            StackPanel altitudePanel = new StackPanel {Orientation = Orientation.Horizontal, Width = rightPanelWidth};
+            TextBlock altitudeBlock = new TextBlock{FontSize = 10, Text = "Altitude: ",Margin = new Thickness(5,5,5,0)};
+            TextBox altitudeBox = new TextBox { FontSize = 10, Text = listener.Altitude + "", Width = numFieldWidth, TextAlignment = TextAlignment.Left, Margin = new Thickness(5, 5, 5, 0) };
+            altitudePanel.Children.Add(altitudeBlock);
+            altitudePanel.Children.Add(altitudeBox);
+            PropsPanel.Children.Add(altitudePanel);
             StackPanel channelPanel = new StackPanel {Orientation = Orientation.Horizontal, Width = rightPanelWidth};
             TextBlock channelBlock = new TextBlock{FontSize = 14, Text = "Channel",Margin = new Thickness(5,5,5,0)};
             ComboBox channelBox = new ComboBox{Margin = new Thickness(5,5,5,5)};
@@ -1040,6 +1136,28 @@ namespace Earlvik.ArtiStereo
                     ybox.Text = listenerPoint.Y + "";
             };
 
+            altitudeBox.TextChanged += delegate
+            {
+                double newValue;
+                if (!double.TryParse(altitudeBox.Text, out newValue)) return;
+                for (int i = 0; i < mRoom.Listeners.Count; i++)
+                {
+                    if (mRoom.Listeners[i] == (ListenerPoint)mSelectedRoomObject)
+                    {
+                        mRoom.Listeners[i].Altitude = newValue;
+                        DrawRoom();
+                        return;
+                    }
+                }
+
+            };
+            altitudeBox.LostFocus += delegate
+            {
+                var listenerPoint = mSelectedRoomObject as ListenerPoint;
+                if (listenerPoint != null)
+                    altitudeBox.Text = listenerPoint.Altitude + "";
+            };
+
             if (xdirbox != null)
             {
                 xdirbox.TextChanged += delegate
@@ -1142,6 +1260,12 @@ namespace Earlvik.ArtiStereo
             TextBox ybox = new TextBox { FontSize = 10, Text = source.Y + "", Width = numFieldWidth, TextAlignment = TextAlignment.Left };
             locationPanel.Children.Add(ybox);
             PropsPanel.Children.Add(locationPanel);
+            StackPanel altitudePanel = new StackPanel { Orientation = Orientation.Horizontal, Width = rightPanelWidth };
+            TextBlock altitudeBlock = new TextBlock { FontSize = 10, Text = "Altitude: ", Margin = new Thickness(5, 5, 5, 0) };
+            TextBox altitudeBox = new TextBox { FontSize = 10, Text = source.Altitude + "", Width = numFieldWidth, TextAlignment = TextAlignment.Left, Margin = new Thickness(5, 5, 5, 0) };
+            altitudePanel.Children.Add(altitudeBlock);
+            altitudePanel.Children.Add(altitudeBox);
+            PropsPanel.Children.Add(altitudePanel);
             Button deleteButton = new Button { Content = "Delete source", HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(10, 10, 10, 10) };
             PropsPanel.Children.Add(deleteButton);
 
@@ -1189,7 +1313,27 @@ namespace Earlvik.ArtiStereo
                     ybox.Text = sourcePoint.Y + "";
             };
 
-            
+            altitudeBox.TextChanged += delegate
+            {
+                double newValue;
+                if (!double.TryParse(altitudeBox.Text, out newValue)) return;
+                for (int i = 0; i < mRoom.Sources.Count; i++)
+                {
+                    if (mRoom.Sources[i] == (SoundPoint)mSelectedRoomObject)
+                    {
+                        mRoom.Sources[i].Altitude = newValue;
+                        DrawRoom();
+                        return;
+                    }
+                }
+
+            };
+            altitudeBox.LostFocus += delegate
+            {
+                var sourcePoint = mSelectedRoomObject as SoundPoint;
+                if (sourcePoint != null)
+                    altitudeBox.Text = sourcePoint.Altitude + "";
+            };
             deleteButton.Click += delegate
             {
                 ((TextBlock)PropsPanel.Children[0]).Text = "Properties";
@@ -1220,12 +1364,13 @@ namespace Earlvik.ArtiStereo
             };
             PropsPanel.Children.Add(material);
             ComboBox materialBox = new ComboBox {Width = 180};
-            materialBox.Items.Add(Wall.MaterialPreset.Brick);
-            materialBox.Items.Add(Wall.MaterialPreset.Glass);
-            materialBox.Items.Add(Wall.MaterialPreset.Granite);
-            materialBox.Items.Add(Wall.MaterialPreset.OakWood);
-            materialBox.Items.Add(Wall.MaterialPreset.Rubber);
-            materialBox.Items.Add(Wall.MaterialPreset.None);
+            //materialBox.Items.Add(Wall.MaterialPreset.Brick);
+            //materialBox.Items.Add(Wall.MaterialPreset.Glass);
+            //materialBox.Items.Add(Wall.MaterialPreset.Granite);
+            //materialBox.Items.Add(Wall.MaterialPreset.OakWood);
+            //materialBox.Items.Add(Wall.MaterialPreset.Rubber);
+            //materialBox.Items.Add(Wall.MaterialPreset.None);
+            materialBox.ItemsSource = Enum.GetValues(typeof (Wall.MaterialPreset));
             materialBox.SelectedItem = wall.MatPreset;
             PropsPanel.Children.Add(materialBox);
             TextBlock matParams = new TextBlock { FontSize = 14, Text = "Material paramaters", Width = rightPanelWidth, TextAlignment = TextAlignment.Center };
@@ -1510,7 +1655,214 @@ namespace Earlvik.ArtiStereo
 
         private void RefVolumeSlider_OnValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
-            reflectedVolume = e.NewValue;
+            mReflectedVolume = e.NewValue;
+        }
+
+        private void OpenBaseSoundButton_Click(object sender, RoutedEventArgs e)
+        {
+            OpenFileDialog dialog = new OpenFileDialog { CheckPathExists = true, CheckFileExists = true, Filter = "Wave Sound Files (*.wav)|*.wav" };
+            bool? result = dialog.ShowDialog();
+            if (result == true)
+            {
+                try
+                {
+                    mConvolveBaseSound = Sound.GetSoundFromWav(dialog.FileName);
+                }
+                catch (Exception exception)
+                {
+                    MessageBox.Show("Error occured during opening: " + exception.Message);
+                    ConvolveButton.IsEnabled = false;
+                    return;
+                }
+                MessageBox.Show("Successfully opened " + dialog.FileName, "Sound Open", MessageBoxButton.OK);
+                if (mKernelSound != null)
+                {
+                    if (CheckSound(mKernelSound, mConvolveBaseSound))
+                    {
+                        ConvolveButton.IsEnabled = true;
+                        ConvolutionStatusBlock.Foreground = Brushes.Green;
+                        ConvolutionStatusBlock.Text = "Everything is OK. You can start convolution.";
+                    }
+                    else
+                    {
+                        ConvolveButton.IsEnabled = false;
+                        ConvolutionStatusBlock.Foreground = Brushes.Red;
+                        ConvolutionStatusBlock.Text =
+                            "Chosen sound and impulse response should have same sound parameters";
+                    }
+                }
+                BaseSoundBlock.Text = dialog.SafeFileName;
+            }
+        }
+
+        private bool CheckSound(Sound first, Sound second)
+        {
+            return (first.BitsPerSample == second.BitsPerSample);
+        }
+
+        private void OpenKernelSoundButton_Click(object sender, RoutedEventArgs e)
+        {
+            OpenFileDialog dialog = new OpenFileDialog { CheckPathExists = true, CheckFileExists = true, Filter = "Wave Sound Files (*.wav)|*.wav" };
+            bool? result = dialog.ShowDialog();
+            if (result == true)
+            {
+                try
+                {
+                    mKernelSound = Sound.GetSoundFromWav(dialog.FileName);
+                }
+                catch (Exception exception)
+                {
+                    MessageBox.Show("Error occured during opening: " + exception.Message);
+                    ConvolveButton.IsEnabled = false;
+                    return;
+                }
+                MessageBox.Show("Successfully opened " + dialog.FileName, "Sound Open", MessageBoxButton.OK);
+                if (mConvolveBaseSound != null)
+                {
+                    if (CheckSound(mKernelSound, mConvolveBaseSound))
+                    {
+                        ConvolveButton.IsEnabled = true;
+                        ConvolutionStatusBlock.Foreground=Brushes.Green;
+                        ConvolutionStatusBlock.Text = "Everything is OK. You can start convolution.";
+                    }
+                    else
+                    {
+                        ConvolveButton.IsEnabled = false;
+                        ConvolutionStatusBlock.Foreground = Brushes.Red;
+                        ConvolutionStatusBlock.Text =
+                            "Chosen sound and impulse response should have same sound parameters";
+                    }
+                }
+               KernelSoundBlock.Text = dialog.SafeFileName;
+            }
+        }
+
+        private void ConvolveButton_Click(object sender, RoutedEventArgs e)
+        {
+            BackgroundWorker worker =new BackgroundWorker();
+            ConvolutionStatusBlock.Text = "In progress...";
+            ConvolveButton.IsEnabled = false;
+            OpenBaseSoundButton.IsEnabled = false;
+            OpenKernelSoundButton.IsEnabled = false;
+            SaveConvolvedButton.IsEnabled = false;
+            worker.DoWork += delegate
+            {
+                if (mKernelSound.Channels != mConvolveBaseSound.Channels)
+                {
+                    for (int i = 0; i < mConvolveBaseSound.Channels; i++)
+                    {
+                        mConvolveBaseSound.Convolve(mKernelSound, i, 0);
+                    }
+                }
+                else
+                {
+                    for (int i = 0; i < mConvolveBaseSound.Channels; i++)
+                    {
+                        mConvolveBaseSound.Convolve(mKernelSound, i, i);
+                    }
+                }
+                mConvolveResultSound = mConvolveBaseSound;
+                mConvolveResultSound.AdjustVolume(0.8);
+                mConvolveBaseSound = null;
+                mKernelSound = null;
+
+            };
+            worker.RunWorkerCompleted += delegate
+            {
+                BaseSoundBlock.Text = KernelSoundBlock.Text = "No file loaded";
+                ConvolutionStatusBlock.Text = "Convolution finished. Feel free to save result";
+                if (mConvolveResultSound == null)
+                {
+                    ConvolutionStatusBlock.Foreground=Brushes.Red;
+                    ConvolutionStatusBlock.Text = "NMath library needs to be installed for convolution";
+                }
+                OpenBaseSoundButton.IsEnabled = true;
+                OpenKernelSoundButton.IsEnabled = true;
+                SaveConvolvedButton.IsEnabled = true;
+            };
+            worker.RunWorkerAsync();
+        }
+
+        private void SaveConvolvedButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (mConvolveResultSound != null)
+            {
+                SaveFileDialog dialog = new SaveFileDialog { AddExtension = true, CheckPathExists = true, Filter = "Wave Sound Files (*.wav)|*.wav" };
+                if (dialog.ShowDialog(this) == true)
+                {
+                    try
+                    {
+                        mConvolveResultSound.CreateWav(dialog.FileName);
+                    }
+                    catch (Exception exception)
+                    {
+                        MessageBox.Show("Error occurred during saving: " + exception.Message);
+                    }
+                    finally
+                    {
+                        SaveConvolvedButton.IsEnabled = false;
+                        ConvolutionStatusBlock.Foreground = Brushes.Red;
+                        ConvolutionStatusBlock.Text = "Both files should be chosen";
+                    }
+                }
+            }
+        }
+
+        private void CancelButton_OnClick(object sender, RoutedEventArgs e)
+        {
+            if (mReflectionWorker != null)
+            {
+                CancelButton.IsEnabled = false;
+                mReflectionWorker.CancelAsync();
+                mReflectionWorker.RunWorkerCompleted += delegate
+                {
+                    foreach (ListenerPoint listener in mRoom.Listeners)
+                    {
+                        listener.Sound = null;
+                    }
+                };
+                    RecordButton.IsEnabled = true;
+                    SoundProgressBar.Visibility = Visibility.Hidden;
+                    for (int i = 0; i<buttonNumber-1;i++)
+                    {
+
+                        mToolButtons[i].IsEnabled = true;
+
+                    }
+                    RoomOpenMenuItem.IsEnabled = true;
+                    SoundOpenMenuItem.IsEnabled = true;
+                    UndoMenuItem.IsEnabled = true;
+                    RedoMenuItem.IsEnabled = true;
+                    ClearMenuItem.IsEnabled = true;
+                    PropsAccItem.IsEnabled = true;
+                    PresetsAccItem.IsEnabled = true;
+                    CeilingHeightBox.IsEnabled = true;
+                    FloorMaterialBox.IsEnabled = true;
+                    RefVolumeSlider.IsEnabled = true;
+                    RoomCanvas.MouseUp+=RoomCanvas_MouseUp;
+                    StatusBlock.Foreground=Brushes.DarkOrange;
+
+                StatusBlock.Text = "Recording cancelled";
+            }
+        }
+
+        private void AboutMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            About about = new About();
+            about.ApplicationLogo = Icon;
+            about.Description =
+                "Coursework done by Viktor Lopatin in NRU HSE 2014.\n" +
+                " Program for Decomposition of Sound from Monophonic Source to Several Channels Considering " +
+                "Acoustic Parameters of the Environment, Position of Instruments and the Listener";
+            about.Copyright = "";
+            about.AdditionalNotes = "";
+            about.Version = "1.0";
+            about.Show();
+        }
+
+        private void RefDepthSlider_OnValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            if (mRoom != null) mRoom.ImageMaxDepth = (int)e.NewValue;
         }
     }
 }

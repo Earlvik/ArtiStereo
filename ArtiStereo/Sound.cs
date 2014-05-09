@@ -2,6 +2,7 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using CenterSpace.NMath.Core;
 
 namespace Earlvik.ArtiStereo
@@ -93,64 +94,71 @@ namespace Earlvik.ArtiStereo
             FileInfo file = new FileInfo(filename);
             if(!file.Exists || file.Extension.Substring(1)!="wav") throw new ArgumentException("The given file is not an existent wav file");
             Sound sound = new Sound();
-            byte[] bytes = File.ReadAllBytes(filename);
-            //if(bytes[22]>2 || bytes[23]>0) throw new ArgumentException("the given file is not a mono file");
-            sound.mChannels = bytes[23]*256 + bytes[22];
-            sound.mDescretionRate = bytes[27]*16777216 + bytes[26]*65536 + bytes[25]*256 + bytes[24];
-            sound.mBitsPerSample = BytesToInt(bytes[34], bytes[35]);
-            if (sound.mBitsPerSample == 0) sound.mBitsPerSample = 16;
-            int pos = 12;   
+            try
+            {
+                byte[] bytes = File.ReadAllBytes(filename);
+                if(bytes[20]!=1 || bytes[21]!=0) throw new ArgumentException("The given file is not in standart WAV format");
+                sound.mChannels = bytes[23]*256 + bytes[22];
+                sound.mDescretionRate = bytes[27]*16777216 + bytes[26]*65536 + bytes[25]*256 + bytes[24];
+                sound.mBitsPerSample = BytesToInt(bytes[34], bytes[35]);
+                if (sound.mBitsPerSample == 0) sound.mBitsPerSample = 16;
+                int pos = 12;
 
-            while (!(bytes[pos] == 100 && bytes[pos + 1] == 97 && bytes[pos + 2] == 116 && bytes[pos + 3] == 97))
-            {
-                pos += 4;
-                int chunkSize = bytes[pos] + bytes[pos + 1] * 256 + bytes[pos + 2] * 65536 + bytes[pos + 3] * 16777216;
-                pos += 4 + chunkSize;
-            }
-            pos += 8;
-            int samples = (bytes.Length - pos) / (sound.mBitsPerSample/8);
-            if (sound.mChannels == 2) samples =(samples%2 == 0)?samples/2:samples/2+1;
-            sound.mSound = new float[sound.mChannels][];
-            for (int i = 0; i < sound.mChannels; i++ )
-            {
-                sound.mSound[i] = new float[samples];
-            }
-            int j = 0;
-            sound.mMaxValue = (int) (Math.Pow(256, sound.mBitsPerSample/8)/2);
-            while (pos+1 < bytes.Length)
-            {
-                
-                for (int k = 0; k < sound.mChannels; k++)
+                while (!(bytes[pos] == 100 && bytes[pos + 1] == 97 && bytes[pos + 2] == 116 && bytes[pos + 3] == 97))
                 {
-                    if (pos + 1 >= bytes.Length) break;
-                    if (sound.mBitsPerSample == 16)
-                    {
-                        sound.mSound[k][j] = (float)BytesToInt(bytes[pos], bytes[pos + 1])/sound.mMaxValue;
-                    }
-                    else
-                    {
-                        int curSound = 0;
-                        int bytesNum = sound.mBitsPerSample/8;
-                        for (int i = 0; i < bytesNum; i++)
-                        {
-                            byte nextByte = bytes[pos + i];
-                            nextByte <<= 8*i;
-                            curSound |= nextByte;
-                        }
-                        if (curSound > sound.mMaxValue + 1)
-                        {
-                            curSound -= 2*sound.mMaxValue + 1;
-                        }
-                        sound.mSound[k][j] = (float)curSound/sound.mMaxValue;
-                    }
-
-                    pos += (sound.mBitsPerSample/8);
+                    pos += 4;
+                    int chunkSize = bytes[pos] + bytes[pos + 1]*256 + bytes[pos + 2]*65536 + bytes[pos + 3]*16777216;
+                    pos += 4 + chunkSize;
                 }
-                j++;
-            }
-            
-            return sound;
+                pos += 8;
+                int samples = (bytes.Length - pos)/(sound.mBitsPerSample/8);
+                if (sound.mChannels == 2) samples = (samples%2 == 0) ? samples/2 : samples/2 + 1;
+                sound.mSound = new float[sound.mChannels][];
+                for (int i = 0; i < sound.mChannels; i++)
+                {
+                    sound.mSound[i] = new float[samples];
+                }
+                int j = 0;
+                sound.mMaxValue = (int) (Math.Pow(256, sound.mBitsPerSample/8)/2);
+                while (pos + 1 < bytes.Length)
+                {
 
+                    for (int k = 0; k < sound.mChannels; k++)
+                    {
+                        if (pos + 1 >= bytes.Length) break;
+                        if (sound.mBitsPerSample == 16)
+                        {
+                            sound.mSound[k][j] = (float) BytesToInt(bytes[pos], bytes[pos + 1])/sound.mMaxValue;
+                        }
+                        else
+                        {
+                            int curSound = 0;
+                            int bytesNum = sound.mBitsPerSample/8;
+                            for (int i = 0; i < bytesNum; i++)
+                            {
+                                byte nextByte = bytes[pos + i];
+                                nextByte <<= 8*i;
+                                curSound |= nextByte;
+                            }
+                            if (curSound > sound.mMaxValue + 1)
+                            {
+                                curSound -= 2*sound.mMaxValue + 1;
+                            }
+                            sound.mSound[k][j] = (float) curSound/sound.mMaxValue;
+                        }
+
+                        pos += (sound.mBitsPerSample/8);
+                    }
+                    j++;
+                }
+
+                return sound;
+            }
+            catch (Exception e)
+            {
+                ArgumentException ex = new ArgumentException("The chosen file seems not to be a valid .wav file");
+                throw ex;
+            }
         }
         /// <summary>
         /// Create simple sine soundwave
@@ -558,6 +566,8 @@ namespace Earlvik.ArtiStereo
             Float1DConvolution convolution = new Float1DConvolution(kernelVector,dataVector.Length);
             FloatVector result = convolution.Convolve(dataVector);
             mSound[channelTo] = result.ToArray();
+
+            
         }
     }
 }

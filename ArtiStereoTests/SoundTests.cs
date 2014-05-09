@@ -14,9 +14,9 @@ namespace ArtiStereoTests
         public void ReadWriteTest()
         {
         
-                AS.Sound sound = AS.Sound.GetSoundFromWav(@"D:\york16.wav");
+                AS.Sound sound = AS.Sound.GetSoundFromWav(@"D:\york.wav");
                // Assert.AreEqual(1,sound.Channels,"The number of channels was expected to be 1, but was: "+sound.Channels);
-                sound.CreateWav(@"D:\york2Copy.wav");
+                sound.CreateWav(@"D:\yorkR.wav");
          
         }
 
@@ -128,7 +128,7 @@ namespace ArtiStereoTests
         public void HighShelfFileterTest()
         {
             AS.Sound sound = AS.Sound.GetSoundFromWav(@"D:\sweep.wav");
-            sound.ShelfFilter(18000,0.3,.9,0,AS.Filter.High);
+            sound.ShelfFilter(10000,1,.4,0,AS.Filter.High);
             sound.CreateWav(@"D:\shelfHIGH.wav");
         }
 

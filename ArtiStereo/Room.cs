@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Data;
 using System.Linq;
 
 namespace Earlvik.ArtiStereo
@@ -15,7 +14,7 @@ namespace Earlvik.ArtiStereo
     [Serializable]
    public class Room
     {
-        private const int imageMaxDepth = 3;
+        public int ImageMaxDepth { set; get; } 
         
         //lists of room elements
         private readonly List<ListenerPoint> mListeners;
@@ -24,6 +23,7 @@ namespace Earlvik.ArtiStereo
 
         public Room()
         {
+            ImageMaxDepth = 3;
             mWalls = new List<Wall>();
             mSources = new List<SoundPoint>();
             mListeners = new List<ListenerPoint>();
@@ -31,6 +31,7 @@ namespace Earlvik.ArtiStereo
 
         public Room(Room room)
         {
+            ImageMaxDepth = 3;
             mWalls = new List<Wall>();
             foreach (Wall wall in room.Walls)
             {
@@ -50,7 +51,7 @@ namespace Earlvik.ArtiStereo
         public event EventHandler CalculationProgress;
 
 // ReSharper disable once InconsistentNaming
-        public enum RoomPreset {SmallSquare,BigSquare,SmallRect,TShape,LShape, Triangle,Trapezoid,Pentagon}
+        public enum RoomPreset {SmallSquare,BigSquare,SmallRect,LShape, Triangle,Trapezoid,Pentagon}
 
         static public Room CreatePresetRoom(RoomPreset preset)
         {
@@ -69,7 +70,7 @@ namespace Earlvik.ArtiStereo
                     break;
                 case RoomPreset.BigSquare:
                     room.AddWall(new Wall(0, 0, 15, 0, mat));
-                    room.AddWall(new Wall(5, 0, 15, 15, mat));
+                    room.AddWall(new Wall(15, 0, 15, 15, mat));
                     room.AddWall(new Wall(15, 15, 0, 15, mat));
                     room.AddWall(new Wall(0, 15, 0, 0, mat));
                     break;
@@ -79,16 +80,7 @@ namespace Earlvik.ArtiStereo
                     room.AddWall(new Wall(10, 5, 0, 5, mat));
                     room.AddWall(new Wall(0, 5, 0, 0, mat));
                     break;
-                case RoomPreset.TShape:
-                    room.AddWall(new Wall(0, 0, 3, 0, mat));
-                    room.AddWall(new Wall(3, 0, 3, 5, mat));
-                    room.AddWall(new Wall(3, 5, 9, 5, mat));
-                    room.AddWall(new Wall(9, 5, 9, 10, mat));
-                    room.AddWall(new Wall(9, 10, -6, 10, mat));
-                    room.AddWall(new Wall(-6, 10, -6, 5, mat));
-                    room.AddWall(new Wall(0, 5, 3, 5, mat));
-                    room.AddWall(new Wall(3, 5, 0, 0, mat));
-                    break;
+                
                 case RoomPreset.LShape:
                     room.AddWall(new Wall(0, 0, 3, 0, mat));
                     room.AddWall(new Wall(3, 0, 3, 5, mat));
@@ -172,6 +164,7 @@ namespace Earlvik.ArtiStereo
         {
             
             double airSSpeed = Wall.Material.Air.SoundSpeed;
+            reflectionsVolume /= mSources.Count;
             foreach (SoundPoint source in Sources)
             {
                 //double distance = Listeners.Min(x => Geometry.Distance(source, x));
@@ -180,6 +173,7 @@ namespace Earlvik.ArtiStereo
                 double directSoundLevel = SoundReduction(Listeners.Min(x=>Geometry.Distance(source,x)));
                 foreach (ListenerPoint listener in Listeners)
                 {
+                    listener.Sound = null;
                     listener.Sound = new Sound(1, source.Sound.DiscretionRate, source.Sound.BitsPerSample);
                     
                     //Direct sound
@@ -340,18 +334,21 @@ namespace Earlvik.ArtiStereo
                 {
                     percentReduction *= listener.GetReduction(directLine);
                 }
+                double low = 0, medium = 0, high = 0;
                 foreach (Wall wayWall in copy.IntersectingWalls(directLine))
                 {
                     double angle = Math.PI / 2 - Geometry.Angle(directLine, wayWall, false);
                     percentReduction *= wayWall.ReflectionCoefft(angle);
-                    snd.SetVolume(0, wayWall.WallMaterial.Low, wayWall.WallMaterial.Medium,
-                        wayWall.WallMaterial.High);
+                    low += (1 - low)*wayWall.WallMaterial.Low;
+                    medium += (1 - medium)*wayWall.WallMaterial.Medium;
+                    high += (1 - high)*wayWall.WallMaterial.High;
                 }
+                snd.SetVolume(0,low,medium,high);
                 listener.Sound.Add(snd, 0, 0, source.Sound.MillesecondsToSamples((int)time),
                     percentReduction);
                 
             }
-            if (imageDepth == imageMaxDepth)
+            if (imageDepth == ImageMaxDepth)
             {
                 for (int j = 1; j < newImage.ImageWalls.Length; j++)
                 {
@@ -388,25 +385,44 @@ namespace Earlvik.ArtiStereo
         /// Checking validness of the room, germeticness etc.
         /// </summary>
         /// <returns></returns>
-        public bool IsValid()
+        public bool IsValid(out string issues)
         {
+            issues = "";
             if (mSources.Count == 0 || mListeners.Count == 0
-                || mListeners.Count > 9) return false;
+                || mListeners.Count > 9)
+            {
+                issues = "Room should contain sources and listeners, but no more than 9 listeners";
+                return false;
+            }
             for (int i = 0; i < 9; i++)
             {
                 Sound.Channel channel = (Sound.Channel)i;
-                if(mListeners.Count(x => x.Channel == channel)>1) return false;
+                if (mListeners.Count(x => x.Channel == channel) > 1)
+                {
+                    issues = "Listeners should not have same channel labels";
+                    return false;
+                }
             }
-            if(mSources.Any(x => x.Sound == null)) return false;
+            if (mSources.Any(x => x.Sound == null))
+            {
+                issues = "Sound is not assigned to one of sources";
+                return false;
+            }
             int discretionRate = mSources[0].Sound.DiscretionRate;
             int bitsPerSample = mSources[0].Sound.BitsPerSample;
-            if(!mSources.All(x=>x.Sound.DiscretionRate == discretionRate && x.Sound.BitsPerSample == bitsPerSample)) return false;
+            if (!mSources.All(x => x.Sound.DiscretionRate == discretionRate && x.Sound.BitsPerSample == bitsPerSample))
+            {
+                issues = "All sources should have sound with same parameters";
+                return false;
+            }
             if (Sources.Any(source => source.Altitude > CeilingHeight || source.Altitude < 0))
             {
+                issues = "All of sources should have positive altitude less than ceiling height";
                 return false;
             }
             if (Listeners.Any(listener => listener.Altitude > CeilingHeight || listener.Altitude < 0))
             {
+                issues = "All of listeners should have positive altitude less than ceiling height";
                 return false;
             }
             List<Point> surface = OuterSurface();
@@ -414,9 +430,19 @@ namespace Earlvik.ArtiStereo
             {
                 Line line = new Line(surface[i],surface[i+1]);
                 if (line.Start == line.End) continue;
-                if (mWalls.All(wall => wall != line)) return false;
+                if (mWalls.All(wall => wall != line))
+                {
+                    issues = "Room should have closed convex shape";
+                    return false;
+                }
             }
             return true;
+        }
+
+        public bool IsValid()
+        {
+            string s;
+            return IsValid(out s);
         }
 
         /// <summary>
