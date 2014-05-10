@@ -1,8 +1,10 @@
 ﻿
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Windows.Documents;
 using CenterSpace.NMath.Core;
 
 namespace Earlvik.ArtiStereo
@@ -568,6 +570,24 @@ namespace Earlvik.ArtiStereo
             mSound[channelTo] = result.ToArray();
 
             
+        }
+
+        public List<KeyValuePair<int, float>> ToKeyValuePairs(int channel)
+        {
+            var data = new List<KeyValuePair<int, float>>();
+            int step = mSound[channel].Length/1000;
+            float average = 0;
+            for (int i = 0; i < mSound[channel].Length; i++)
+            {
+                average += mSound[channel][i];
+                if (i%step == 0)
+                {
+                    data.Add(new KeyValuePair<int, float>(i, average));
+                    average = 0;
+
+                }
+            }
+            return data;
         }
     }
 }

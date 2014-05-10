@@ -919,6 +919,8 @@ namespace Earlvik.ArtiStereo
                     source.Sound = mBaseSound;
                 }
                 FileNameBlock.Text = "Source: "+dialog.SafeFileName;
+                SoundSeries.DataContext = mBaseSound.ToKeyValuePairs(0);
+               // Timeline.Visibility = Visibility.Visible;
                 DrawRoom();
             }
         }
@@ -1674,6 +1676,8 @@ namespace Earlvik.ArtiStereo
                     ConvolveButton.IsEnabled = false;
                     return;
                 }
+
+                BaseSeries.DataContext = mConvolveBaseSound.ToKeyValuePairs(0);
                 MessageBox.Show("Successfully opened " + dialog.FileName, "Sound Open", MessageBoxButton.OK);
                 if (mKernelSound != null)
                 {
@@ -1716,6 +1720,7 @@ namespace Earlvik.ArtiStereo
                     ConvolveButton.IsEnabled = false;
                     return;
                 }
+                KernelSeries.DataContext = mKernelSound.ToKeyValuePairs(0);
                 MessageBox.Show("Successfully opened " + dialog.FileName, "Sound Open", MessageBoxButton.OK);
                 if (mConvolveBaseSound != null)
                 {
