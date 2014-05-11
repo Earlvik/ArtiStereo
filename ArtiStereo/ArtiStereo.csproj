@@ -115,6 +115,7 @@
     <AppDesigner Include="Properties\" />
   </ItemGroup>
   <ItemGroup>
+    <Resource Include="Images\play.png" />
     <Resource Include="Images\Rect.jpg" />
   </ItemGroup>
   <ItemGroup>

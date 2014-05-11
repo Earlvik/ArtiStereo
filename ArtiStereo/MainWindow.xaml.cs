@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
+using System.Media;
 using System.Runtime.Serialization.Formatters.Binary;
 using System.Windows;
 using System.Windows.Controls;
@@ -32,7 +33,8 @@ namespace Earlvik.ArtiStereo
         private const int minPixelPerMeter = 5;
         private const int maxPixelPerMeter = 320;
         private const int rightPanelWidth = 250;
-        private String filename;
+        private String mFilename;
+        private SoundPlayer mPlayer;
         //List of handlers assigned to canvas mouseUp event
         readonly List<MouseButtonEventHandler> mCanvasMousehandlers = new List<MouseButtonEventHandler>();
         
@@ -415,22 +417,22 @@ namespace Earlvik.ArtiStereo
                 
                 mReflectionWorker.DoWork += delegate
                 {
-                    try
-                    {
+                  //  try
+                  //  {
                         mRoom.CalculateSound(mReflectedVolume);
-                    }
-                    catch (Exception ex)
-                    {
-                        Dispatcher.Invoke((Action) delegate
-                        {
-                            if (CancelButton.IsEnabled)
-                            {
-                               MessageBox.Show(this, "Error occurred during recording process: " + ex.Message);
-                                throw ex;
-                            }
+                 //   }
+                 //   catch (Exception ex)
+                //    {
+                 //       Dispatcher.Invoke((Action) delegate
+                 //       {
+                //            if (CancelButton.IsEnabled)
+                 //           {
+                //               MessageBox.Show(this, "Error occurred during recording process: " + ex.Message);
+                //                throw ex;
+                //            }
 
-                        });
-                    }
+                 //       });
+                //    }
                     
                 };
                 mReflectionWorker.RunWorkerCompleted += delegate
@@ -442,6 +444,7 @@ namespace Earlvik.ArtiStereo
                     if (!mReflectionWorker.CancellationPending)
                     {
                         SoundSaveMenuItem.IsEnabled = true;
+                        PlayButton.IsEnabled = true;
                     }
                     RecordButton.IsEnabled = true;
                     mRoom.CalculationProgress -= reporter;
@@ -1752,7 +1755,7 @@ namespace Earlvik.ArtiStereo
             SaveConvolvedButton.IsEnabled = false;
             worker.DoWork += delegate
             {
-                if (mKernelSound.Channels != mConvolveBaseSound.Channels)
+                if (mKernelSound.Channels < mConvolveBaseSound.Channels)
                 {
                     for (int i = 0; i < mConvolveBaseSound.Channels; i++)
                     {
@@ -1761,6 +1764,15 @@ namespace Earlvik.ArtiStereo
                 }
                 else
                 {
+                    if (mKernelSound.Channels > mConvolveBaseSound.Channels)
+                    {
+                        Sound TempSound = new Sound(mKernelSound.Channels,mConvolveBaseSound.DiscretionRate,mConvolveBaseSound.BitsPerSample);
+                        for (int i = 0; i < mKernelSound.Channels; i++)
+                        {
+                           TempSound.Add(mConvolveBaseSound,0,i,0);
+                        }
+                        mConvolveBaseSound = TempSound;
+                    }
                     for (int i = 0; i < mConvolveBaseSound.Channels; i++)
                     {
                         mConvolveBaseSound.Convolve(mKernelSound, i, i);
@@ -1776,6 +1788,8 @@ namespace Earlvik.ArtiStereo
             {
                 BaseSoundBlock.Text = KernelSoundBlock.Text = "No file loaded";
                 ConvolutionStatusBlock.Text = "Convolution finished. Feel free to save result";
+                mConvolveBaseSound = null;
+                mKernelSound = null;
                 if (mConvolveResultSound == null)
                 {
                     ConvolutionStatusBlock.Foreground=Brushes.Red;
@@ -1797,7 +1811,13 @@ namespace Earlvik.ArtiStereo
                 {
                     try
                     {
+                        if (!dialog.FileName.EndsWith(".wav"))
+                        {
+                            dialog.FileName += ".wav";
+                        }
                         mConvolveResultSound.CreateWav(dialog.FileName);
+                        mFilename = dialog.FileName;
+                        PlayPauseButton.IsEnabled = true;
                     }
                     catch (Exception exception)
                     {
@@ -1868,6 +1888,50 @@ namespace Earlvik.ArtiStereo
         private void RefDepthSlider_OnValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
             if (mRoom != null) mRoom.ImageMaxDepth = (int)e.NewValue;
+        }
+
+        private void PlayPauseButton_Checked(object sender, RoutedEventArgs e)
+        {
+            mPlayer = new SoundPlayer(mFilename);
+            mPlayer.Load();
+            mPlayer.PlayLooping();
+           
+        }
+
+        private void PlayPauseButton_Unchecked(object sender, RoutedEventArgs e)
+        {
+            if (mPlayer != null)
+            {
+                mPlayer.Stop();
+            }
+        }
+
+
+        private void PlayButton_OnChecked(object sender, RoutedEventArgs e)
+        {
+            if (mResultSound != null)
+            {
+                const string filename = "~temp_sound.wav";
+                mResultSound.CreateWav(filename);
+                File.SetAttributes(filename,File.GetAttributes(filename)|FileAttributes.Hidden);
+                mPlayer = new SoundPlayer(filename);
+                mPlayer.Load();
+                mPlayer.PlayLooping();
+
+            }
+        }
+
+        private void PlayButton_OnUnchecked(object sender, RoutedEventArgs e)
+        {
+            if (mPlayer != null)
+            {
+                const string filename = "~temp_sound.wav";
+                mPlayer.Stop();
+                if (File.Exists(filename))
+                {
+                    File.Delete(filename);
+                }
+            }
         }
     }
 }

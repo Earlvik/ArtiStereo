@@ -138,12 +138,18 @@
                                                         <chartingToolkit:LineSeries.DataPointStyle>
                                                             <Style TargetType="chartingToolkit:LineDataPoint">
                                                                 <Setter Property="Width" Value="0"></Setter>
+                                                                <Setter Property="Background" Value="Green"></Setter>
                                                             </Style>
                                                         </chartingToolkit:LineSeries.DataPointStyle>
                                                     </chartingToolkit:LineSeries>
                                                 </chartingToolkit:Chart>
                                                 <Button x:Name="RecordButton" Margin ="5" IsEnabled="False" Content="Start Record" HorizontalAlignment="Center" Click="RecordButton_Click"/>
                                                 <Button x:Name="CancelButton" Margin="5" IsEnabled="False" Content="Cancel Record" HorizontalAlignment="Center" Click="CancelButton_OnClick"/>
+                                                <ToggleButton Name ="PlayButton" Width="30" Height="30" Style="{DynamicResource ToolButton}" IsEnabled="False" Checked="PlayButton_OnChecked" Unchecked="PlayButton_OnUnchecked">
+                                                    <ToggleButton.Background>
+                                                        <ImageBrush Stretch="Uniform" ImageSource="Images/play.png"/>
+                                                    </ToggleButton.Background>
+                                                </ToggleButton>
                                             </StackPanel>
                                         </Grid>
                                     </layoutToolkit:AccordionItem>
@@ -216,7 +222,11 @@
                             <StackPanel Orientation="Horizontal">
                                 <Button Content="Start Convolution" x:Name="ConvolveButton" Margin="10" IsEnabled="False" Click="ConvolveButton_Click"/>
                                 <Button Content ="Save Result To a File" x:Name="SaveConvolvedButton" Margin="10" IsEnabled="False" Click="SaveConvolvedButton_Click"/>
-
+                                <ToggleButton Name="PlayPauseButton" Style="{DynamicResource ToolButton}" Width="30" Height="30" IsEnabled="False" Checked="PlayPauseButton_Checked" Unchecked="PlayPauseButton_Unchecked">
+                                    <ToggleButton.Background>
+                                        <ImageBrush Stretch="Uniform" ImageSource="Images/play.png"/>
+                                    </ToggleButton.Background>
+                                </ToggleButton>
 
                             </StackPanel>
                             <TextBlock Margin="3" FontWeight="SemiBold" Text="Select files for convolution reverb. Be careful, convolution reverb returns good results only if the sound loaded as impulse response is actually an IR"/>

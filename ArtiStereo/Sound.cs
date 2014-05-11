@@ -330,7 +330,7 @@ namespace Earlvik.ArtiStereo
             data[2] = 0x46;
             data[3] = 0x46;
             //ChunkSize
-            int chunkSize = data.Length - 4;
+            int chunkSize = data.Length - 8;
             data[4] = (byte) (chunkSize%256);
             data[5] = (byte) ((chunkSize%65536 - (data[4]))/256);
             data[6] = (byte) ((chunkSize%16777216 - data[4] - data[5]*256)/65536);
@@ -377,7 +377,7 @@ namespace Earlvik.ArtiStereo
             data[38] = 0x74;
             data[39] = 0x61;
             //subChunk2Size
-            int subChunk2Size = data.Length - 40;
+            int subChunk2Size = data.Length - 44;
             data[40] = (byte)(subChunk2Size % 256);
             data[41] = (byte)((subChunk2Size % 65536 - (data[40])) / 256);
             data[42] = (byte)((subChunk2Size % 16777216 - data[40] - data[41] * 256) / 65536);

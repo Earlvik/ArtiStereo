@@ -14,9 +14,9 @@ namespace ArtiStereoTests
         public void ReadWriteTest()
         {
         
-                AS.Sound sound = AS.Sound.GetSoundFromWav(@"D:\york.wav");
+                AS.Sound sound = AS.Sound.GetSoundFromWav(@"D:\sweep.wav");
                // Assert.AreEqual(1,sound.Channels,"The number of channels was expected to be 1, but was: "+sound.Channels);
-                sound.CreateWav(@"D:\yorkR.wav");
+                sound.CreateWav(@"D:\sweepC.wav");
          
         }
 

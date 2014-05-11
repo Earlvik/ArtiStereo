@@ -83,7 +83,7 @@ namespace Earlvik.ArtiStereo
             double C = line.Start.X * line.End.Y - line.Start.Y * line.End.X;
 
             double denom = Math.Sqrt(A * A + B * B);
-            if (Math.Abs(denom) < eps) throw new Exception("the line equation is illegal");
+            if (Math.Abs(denom) < eps) return 0;
             return Math.Abs(A * point.X + B * point.Y + C) / denom;
         }
 
