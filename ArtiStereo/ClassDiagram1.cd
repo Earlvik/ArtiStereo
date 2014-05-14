@@ -23,13 +23,6 @@
   </Class>
   <Class Name="Earlvik.ArtiStereo.ListenerPoint" Collapsed="true">
     <Position X="0.5" Y="3.25" Width="1.5" />
-    <NestedTypes>
-      <Delegate Name="Earlvik.ArtiStereo.ListenerPoint.DirectionalDecrease" Collapsed="true">
-        <TypeIdentifier>
-          <NewMemberFileName>ListenerPoint.cs</NewMemberFileName>
-        </TypeIdentifier>
-      </Delegate>
-    </NestedTypes>
     <TypeIdentifier>
       <HashCode>AAEAAYAgAAAAACAAAAAAAAAAAAAAGAAAAgAAAAAAgAA=</HashCode>
       <FileName>ListenerPoint.cs</FileName>
@@ -38,7 +31,7 @@
   <Class Name="Earlvik.ArtiStereo.MainWindow" Collapsed="true">
     <Position X="9.5" Y="0.5" Width="1.5" />
     <TypeIdentifier>
-      <HashCode>AwYcEABUIhIhBgEQQoAgDCUAIAAABxCASBAIMEIABSA=</HashCode>
+      <HashCode>AwIcEBBeOlIhBgEQUphgDC0AIAAABxSAWBAIMFIABSQ=</HashCode>
       <FileName>MainWindow.xaml.cs</FileName>
     </TypeIdentifier>
   </Class>
@@ -51,15 +44,8 @@
   </Class>
   <Class Name="Earlvik.ArtiStereo.Room" Collapsed="true">
     <Position X="9.75" Y="2.5" Width="1.5" />
-    <NestedTypes>
-      <Enum Name="Earlvik.ArtiStereo.Room.RoomPreset" Collapsed="true">
-        <TypeIdentifier>
-          <NewMemberFileName>Room.cs</NewMemberFileName>
-        </TypeIdentifier>
-      </Enum>
-    </NestedTypes>
     <TypeIdentifier>
-      <HashCode>AAAgAFAAAEBEABQAEQgAAAIAAEASIEWIAAAgpADAAgA=</HashCode>
+      <HashCode>AAAgAFAAAEBEABQAEAgAAAMAAEASIEWIAAAgpADAAgA=</HashCode>
       <FileName>Room.cs</FileName>
     </TypeIdentifier>
   </Class>
@@ -73,7 +59,7 @@
   <Class Name="Earlvik.ArtiStereo.Sound" Collapsed="true">
     <Position X="7.75" Y="2.5" Width="1.5" />
     <TypeIdentifier>
-      <HashCode>MBJCIAQgAAAAKBAAEAAERAoACgABBhCAgCAAAEAAsQQ=</HashCode>
+      <HashCode>MBJCIAQgAAAAKBAAEAQERAoACgABBhCAgCAAAEAAsQQ=</HashCode>
       <FileName>Sound.cs</FileName>
     </TypeIdentifier>
   </Class>
@@ -90,18 +76,6 @@
     <Compartments>
       <Compartment Name="Nested Types" Collapsed="false" />
     </Compartments>
-    <NestedTypes>
-      <Enum Name="Earlvik.ArtiStereo.Wall.MaterialPreset" Collapsed="true">
-        <TypeIdentifier>
-          <NewMemberFileName>Wall.cs</NewMemberFileName>
-        </TypeIdentifier>
-      </Enum>
-      <Class Name="Earlvik.ArtiStereo.Wall.Material" Collapsed="true">
-        <TypeIdentifier>
-          <NewMemberFileName>Wall.cs</NewMemberFileName>
-        </TypeIdentifier>
-      </Class>
-    </NestedTypes>
     <InheritanceLine Type="Earlvik.ArtiStereo.Line" FixedFromPoint="true">
       <Path>
         <Point X="5" Y="1.062" />
@@ -117,7 +91,7 @@
     <Lollipop Position="0.2" />
   </Class>
   <Class Name="Earlvik.ArtiStereo.Properties.Resources" Collapsed="true">
-    <Position X="6" Y="1.5" Width="1.5" />
+    <Position X="6.25" Y="1.5" Width="1.5" />
     <TypeIdentifier>
       <HashCode>AAAAAAAAAAAAAAAAAAABEAAAAQAAAAAAAAAAAAAAAIA=</HashCode>
     </TypeIdentifier>

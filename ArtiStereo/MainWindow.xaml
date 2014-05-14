@@ -48,7 +48,6 @@
                                 <MenuItem Header="Clear Workplace" x:Name ="ClearMenuItem" Click="ClearMenuItem_Click"/>
                             </MenuItem>
                             <MenuItem Header="Help">
-                                <MenuItem Header="Manual" x:Name="ManMenuItem"/>
                                 <MenuItem Header="About" x:Name="AboutMenuItem" Click="AboutMenuItem_Click"/>
                             </MenuItem>
                         </Menu>

@@ -572,9 +572,9 @@ namespace Earlvik.ArtiStereo
             
         }
 
-        public List<KeyValuePair<int, float>> ToKeyValuePairs(int channel)
+        public List<KeyValuePair<float, float>> ToKeyValuePairs(int channel)
         {
-            var data = new List<KeyValuePair<int, float>>();
+            var data = new List<KeyValuePair<float, float>>();
             int step = mSound[channel].Length/1000;
             float average = 0;
             for (int i = 0; i < mSound[channel].Length; i++)
@@ -582,7 +582,7 @@ namespace Earlvik.ArtiStereo
                 average += mSound[channel][i];
                 if (i%step == 0)
                 {
-                    data.Add(new KeyValuePair<int, float>(i, average));
+                    data.Add(new KeyValuePair<float, float>(i/(float)DiscretionRate, average));
                     average = 0;
 
                 }

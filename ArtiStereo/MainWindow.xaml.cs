@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Media;
+using System.Net;
 using System.Runtime.Serialization.Formatters.Binary;
 using System.Windows;
 using System.Windows.Controls;
@@ -68,7 +69,8 @@ namespace Earlvik.ArtiStereo
             foreach (ToggleButton button in mToolButtons)
             {
                 button.Checked += ToolButtonToggled;
-                button.Unchecked += (sender, args) => { 
+                button.Unchecked += (sender, args) =>
+                {
                     mChosenButton = -1;
                     mMarkers.Clear();
                     DrawRoom();
@@ -76,8 +78,12 @@ namespace Earlvik.ArtiStereo
                     {
                         RoomCanvas.MouseUp -= handler;
                     }
-                    RoomCanvas.MouseUp -= RoomCanvas_MouseUp;
-                    RoomCanvas.MouseUp += RoomCanvas_MouseUp;
+                    if (RectButton.IsEnabled)
+                    {
+
+                        RoomCanvas.MouseUp -= RoomCanvas_MouseUp;
+                        RoomCanvas.MouseUp += RoomCanvas_MouseUp;
+                    }
                 };
             }
             mRoom = new Room();
@@ -396,6 +402,9 @@ namespace Earlvik.ArtiStereo
                 CeilingHeightBox.IsEnabled = false;
                 FloorMaterialBox.IsEnabled = false;
                 RefVolumeSlider.IsEnabled = false;
+                RefDepthSlider.IsEnabled = false;
+                CeilingMaterialBox.IsEnabled = false;
+                PlayButton.IsEnabled = false;
                 CancelButton.IsEnabled = true;
 
                 RoomCanvas.MouseUp -= RoomCanvas_MouseUp;
@@ -417,22 +426,22 @@ namespace Earlvik.ArtiStereo
                 
                 mReflectionWorker.DoWork += delegate
                 {
-                  //  try
-                  //  {
+                    try
+                    {
                         mRoom.CalculateSound(mReflectedVolume);
-                 //   }
-                 //   catch (Exception ex)
-                //    {
-                 //       Dispatcher.Invoke((Action) delegate
-                 //       {
-                //            if (CancelButton.IsEnabled)
-                 //           {
-                //               MessageBox.Show(this, "Error occurred during recording process: " + ex.Message);
-                //                throw ex;
-                //            }
+                    }
+                    catch (Exception ex)
+                    {
+                        Dispatcher.Invoke((Action) delegate
+                        {
+                            if (CancelButton.IsEnabled)
+                            {
+                               MessageBox.Show(this, "Error occurred during recording process: " + ex.Message);
+                                throw ex;
+                            }
 
-                 //       });
-                //    }
+                        });
+                    }
                     
                 };
                 mReflectionWorker.RunWorkerCompleted += delegate
@@ -465,6 +474,9 @@ namespace Earlvik.ArtiStereo
                     CeilingHeightBox.IsEnabled = true;
                     FloorMaterialBox.IsEnabled = true;
                     RefVolumeSlider.IsEnabled = true;
+                    RefDepthSlider.IsEnabled = true;
+                    CeilingMaterialBox.IsEnabled = true;
+                    
                     RoomCanvas.MouseUp+=RoomCanvas_MouseUp;
                     StatusBlock.Foreground=Brushes.DarkGreen;
                     
@@ -959,8 +971,11 @@ namespace Earlvik.ArtiStereo
             {
                 RoomCanvas.MouseUp -= handler;
             }
-            RoomCanvas.MouseUp -= RoomCanvas_MouseUp;
-            RoomCanvas.MouseUp+=RoomCanvas_MouseUp;
+            if (RectButton.IsEnabled)
+            {
+                RoomCanvas.MouseUp -= RoomCanvas_MouseUp;
+                RoomCanvas.MouseUp += RoomCanvas_MouseUp;
+            }
             for (int i = 0; i < buttonNumber; i++)
             {
                 
@@ -1062,7 +1077,10 @@ namespace Earlvik.ArtiStereo
             {
                 if (listener.Channel != (Sound.Channel)channelBox.SelectedItem && mRoom.Listeners.Any(x => x.Channel == (Sound.Channel)channelBox.SelectedItem))
                 {
-                    channelBox.SelectedItem = listener.Channel;
+                    ListenerPoint another =
+                        mRoom.Listeners.Find(x => x.Channel == (Sound.Channel) channelBox.SelectedItem);
+                    another.Channel = listener.Channel;
+
                 }
                 listener.Channel = (Sound.Channel) channelBox.SelectedItem;
 
@@ -1864,6 +1882,8 @@ namespace Earlvik.ArtiStereo
                     CeilingHeightBox.IsEnabled = true;
                     FloorMaterialBox.IsEnabled = true;
                     RefVolumeSlider.IsEnabled = true;
+                    RefDepthSlider.IsEnabled = true;
+                    CeilingMaterialBox.IsEnabled = true;
                     RoomCanvas.MouseUp+=RoomCanvas_MouseUp;
                     StatusBlock.Foreground=Brushes.DarkOrange;
 
@@ -1912,7 +1932,10 @@ namespace Earlvik.ArtiStereo
             if (mResultSound != null)
             {
                 const string filename = "~temp_sound.wav";
-                mResultSound.CreateWav(filename);
+                Sound resultTwoCh = new Sound(2,mResultSound.DiscretionRate,mResultSound.BitsPerSample);
+                resultTwoCh.Add(mResultSound,0,0,0);
+                resultTwoCh.Add(mResultSound, mResultSound.Channels > 1 ? 1 : 0, 1, 0);
+                resultTwoCh.CreateWav(filename);
                 File.SetAttributes(filename,File.GetAttributes(filename)|FileAttributes.Hidden);
                 mPlayer = new SoundPlayer(filename);
                 mPlayer.Load();

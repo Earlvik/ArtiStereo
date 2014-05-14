@@ -328,13 +328,14 @@ namespace Earlvik.ArtiStereo
                 double time = distance / airSSpeed * 1000;
 
                 Console.WriteLine("SOUND");
-                //TODO: find intersecting walls and add sound
+                
                 Line directLine = new Line(newImage.Source, listener);
                 if (listener.Directional)
                 {
                     percentReduction *= listener.GetReduction(directLine);
                 }
                 double low = 0, medium = 0, high = 0;
+                int baseWalls = 0;
                 foreach (Wall wayWall in copy.IntersectingWalls(directLine))
                 {
                     double angle = Math.PI / 2 - Geometry.Angle(directLine, wayWall, false);
@@ -342,11 +343,15 @@ namespace Earlvik.ArtiStereo
                     low += (1 - low)*wayWall.WallMaterial.Low;
                     medium += (1 - medium)*wayWall.WallMaterial.Medium;
                     high += (1 - high)*wayWall.WallMaterial.High;
+                    if (mWalls.Contains(wayWall)) baseWalls++;
                 }
-                snd.SetVolume(0,low,medium,high);
-                listener.Sound.Add(snd, 0, 0, source.Sound.MillesecondsToSamples((int)time),
-                    percentReduction);
-                
+                if (baseWalls < 2)
+                {
+                    snd.SetVolume(0, low, medium, high);
+                    listener.Sound.Add(snd, 0, 0, source.Sound.MillesecondsToSamples((int) time),
+                        percentReduction);
+                }
+
             }
             if (imageDepth == ImageMaxDepth)
             {
